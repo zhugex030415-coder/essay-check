@@ -267,8 +267,9 @@ kbd{
       <span class="brand-txt"><b>赤舟国际教育</b><i>作文批改工作台</i></span>
     </a>
     <p class="topmeta"><span class="dot" aria-hidden="true"></span>本地运行 · 图片不出本机</p>
-    <a class="batch-link" id="batchLink" href="/batch.html" style="margin-left:12px;font-size:12px;color:#8b1a1a;font-weight:600;text-decoration:underline">批量模式 →</a>
-    <a class="batch-link" id="camLink" href="/cambridge.html" style="margin-left:10px;font-size:12px;color:#8b1a1a;font-weight:600;text-decoration:underline">剑桥 KET/PET/FCE →</a>
+    <a class="batch-link" id="batchLink" href="/batch.html" style="margin-left:12px;font-size:12px;color:#8b1a1a;font-weight:600;text-decoration:underline">中高考批量 →</a>
+    <a class="batch-link" id="camLink" href="/cambridge.html" style="margin-left:10px;font-size:12px;color:#8b1a1a;font-weight:600;text-decoration:underline">剑桥单篇 →</a>
+    <a class="batch-link" id="camBatchLink" href="/cambridge_batch.html" style="margin-left:10px;font-size:12px;color:#8b1a1a;font-weight:600;text-decoration:underline">剑桥批量 →</a>
   </div>
 </header>
 
@@ -498,6 +499,7 @@ function setBusy(on) {
 let accessCode = new URLSearchParams(location.search).get('code') || '';
 document.getElementById('batchLink').href = '/batch.html' + (location.search || '');
 document.getElementById('camLink').href = '/cambridge.html' + (location.search || '');
+document.getElementById('camBatchLink').href = '/cambridge_batch.html' + (location.search || '');
 
 btn.addEventListener('click', async () => {
   if (btn.disabled) return;
