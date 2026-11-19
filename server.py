@@ -232,7 +232,7 @@ def call_model(prompt):
     return call_chat(API_URL, API_KEY, payload)
 
 
-def _downscale_image(data: bytes, max_side=1200, quality=88):
+def _downscale_image(data: bytes, max_side=1000, quality=85):
     """把图片缩到 max_side 以内（JPEG）。大图更容易触发远端断连/404；失败就原样返回。"""
     try:
         from PIL import Image
