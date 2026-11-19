@@ -549,22 +549,33 @@ class Handler(BaseHTTPRequestHandler):
                     code = kv[5:]
         return code == ACCESS_CODE
 
-    def _diag(self, req):
+    def _diag(self, req, step="all"):
         import time as _t
-        timings = {}
+        out = {"step": step}
         try:
             data = decode_image((req.get("essay_image") or "").strip())
-            t = _t.time(); text, hw, note = transcribe(data); timings["ocr"] = round(_t.time() - t, 1); timings["ocr_len"] = len(text)
-            t = _t.time(); gj = grade(text or "x", req.get("question_text") or "", req.get("level") or "中L1"); timings["grade"] = round(_t.time() - t, 1)
-            t = _t.time(); html = render_report(gj, req.get("level") or "中L1", "diag", req.get("question_text") or "", text or "", hw, note, ""); timings["render"] = round(_t.time() - t, 1)
-            t = _t.time(); pdf = html_to_pdf(html); timings["pdf"] = round(_t.time() - t, 1); timings["pdf_bytes"] = len(pdf)
-            timings["ok"] = True
+            text, hw, note = "", 3, ""
+            if step in ("all", "ocr"):
+                t = _t.time(); text, hw, note = transcribe(data); out["ocr"] = round(_t.time() - t, 1); out["ocr_len"] = len(text)
+                if step == "ocr":
+                    out["ok"] = True; return out
+            gj = None
+            if step in ("all", "grade"):
+                if step == "grade":
+                    text = (req.get("essay_text") or "").strip() or "test essay text"
+                t = _t.time(); gj = grade(text or "x", req.get("question_text") or "", req.get("level") or "中L1"); out["grade"] = round(_t.time() - t, 1)
+                if step == "grade":
+                    out["ok"] = True; return out
+            t = _t.time(); html = render_report(gj, req.get("level") or "中L1", "diag", "", text or "", hw, note, ""); out["render"] = round(_t.time() - t, 1)
+            t = _t.time(); pdf = html_to_pdf(html); out["pdf"] = round(_t.time() - t, 1); out["pdf_bytes"] = len(pdf)
+            out["ok"] = True
         except Exception as e:
-            timings["ok"] = False; timings["error"] = f"{type(e).__name__}: {str(e)[:120]}"
-        return timings
+            out["ok"] = False; out["error"] = f"{type(e).__name__}: {str(e)[:120]}"
+        return out
 
     def do_POST(self):
-        if self.path not in ("/api/grade", "/api/diag"):
+        path = self.path.split("?")[0]
+        if path not in ("/api/grade", "/api/diag"):
             self._send(404, {"error": "not found"})
             return
         if not self._auth():
@@ -576,8 +587,11 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send(400, {"error": f"bad json: {e}"})
             return
-        if self.path == "/api/diag":
-            self._send(200, self._diag(req))
+        if path == "/api/diag":
+            step = "all"
+            if "step=" in self.path:
+                step = self.path.split("step=", 1)[1].split("&")[0]
+            self._send(200, self._diag(req, step))
             return
         try:
             pdf = handle_grade(req)
