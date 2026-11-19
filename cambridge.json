@@ -1,0 +1,49 @@
+{
+  "criteria": {
+    "Content": {"zh": "内容", "desc": "是否完整回应题目要求、覆盖所有要点，目标读者能获得所需全部信息。"},
+    "Communicative Achievement": {"zh": "交际效果", "desc": "文体与语气是否恰当（正式/非正式、读者意识），是否抓住读者、清楚传达主要信息。"},
+    "Organisation": {"zh": "组织", "desc": "整体结构是否连贯，段落划分、衔接手段、连接词使用是否自然。"},
+    "Language": {"zh": "语言", "desc": "词汇与语法范围、准确性，拼写与标点是否恰当。"}
+  },
+  "exams": [
+    {
+      "code": "KET",
+      "name": "A2 Key (KET)",
+      "cefr": "A2",
+      "parts": [
+        {"code": "K-P6", "label": "Part 6 · 短邮件 / 便条", "words": "≥25 词", "max": 15,
+         "task": "根据三个提示点，写一封简短的邮件或便条。",
+         "criteria": ["Content", "Organisation", "Language"]},
+        {"code": "K-P7", "label": "Part 7 · 看图写故事", "words": "≥35 词", "max": 15,
+         "task": "根据三幅图，写一个简短的故事。",
+         "criteria": ["Content", "Organisation", "Language"]}
+      ]
+    },
+    {
+      "code": "PET",
+      "name": "B1 Preliminary (PET)",
+      "cefr": "B1",
+      "parts": [
+        {"code": "P-P1", "label": "Part 1 · 邮件", "words": "约 100 词", "max": 20,
+         "task": "读一封邮件和四个要点提示，写回信。",
+         "criteria": ["Content", "Communicative Achievement", "Organisation", "Language"]},
+        {"code": "P-P2", "label": "Part 2 · 文章 / 故事", "words": "约 100 词", "max": 20,
+         "task": "从文章（article）或故事（story）中选一个写。",
+         "criteria": ["Content", "Communicative Achievement", "Organisation", "Language"]}
+      ]
+    },
+    {
+      "code": "FCE",
+      "name": "B2 First (FCE)",
+      "cefr": "B2",
+      "parts": [
+        {"code": "F-P1", "label": "Part 1 · 议论文（Essay）", "words": "140–190 词", "max": 20,
+         "task": "就一个论点写议论文：表达立场、给出理由与例子、比较观点。",
+         "criteria": ["Content", "Communicative Achievement", "Organisation", "Language"]},
+        {"code": "F-P2", "label": "Part 2 · 文章/邮件/信/报告/评论/故事", "words": "140–190 词", "max": 20,
+         "task": "从文章、邮件/信、报告、评论、故事中选一种文体写。",
+         "criteria": ["Content", "Communicative Achievement", "Organisation", "Language"]}
+      ]
+    }
+  ]
+}
