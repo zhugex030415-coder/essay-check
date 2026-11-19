@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: essay-grader
+    runtime: python
+    plan: free
+    # WeasyPrint 需要系统库 pango/cairo，中文需要 Noto CJK 字体
+    buildCommand: apt-get update && apt-get install -y libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 fonts-noto-cjk && pip install -r requirements.txt
+    startCommand: python server.py
+    envVars:
+      - key: DEEPSEEK_KEY
+        sync: false            # 部署时在 Render 后台填
+      - key: DEEPSEEK_MODEL
+        value: deepseek-v4-pro
+      - key: OCR_PROVIDER
+        value: ark
+      - key: OCR_KEY
+        sync: false            # 部署时在 Render 后台填火山方舟 key
+      - key: OCR_API
+        value: https://ark.cn-beijing.volces.com/api/v3/chat/completions
+      - key: OCR_MODEL
+        value: doubao-seed-2-1-pro-260915
+      - key: ACCESS_CODE
+        sync: false            # 部署时自定一个访问码
