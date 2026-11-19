@@ -69,6 +69,7 @@ def _prune_jobs():
 
 RUBRIC = json.loads((ROOT / "rubric.json").read_text(encoding="utf-8"))
 TEMPLATE = (ROOT / "report_template.html").read_text(encoding="utf-8")
+CAMBRIDGE = json.loads((ROOT / "cambridge.json").read_text(encoding="utf-8"))
 
 # ---------------------------------------------------------------- 系统提示
 SYS = (
@@ -453,6 +454,8 @@ def render_report(grade_json, level, name, question_text, transcript, hw_score, 
         "{{WORDS}}": str(wc),
         "{{DATE}}": date,
         "{{TOTAL}}": str(total),
+        "{{MAX}}": "25",
+        "{{SCORE_HEADER}}": "5 维 × 5 分 = 25 分",
         "{{BAND}}": band,
         "{{QUESTION_BLOCK}}": q_block,
         "{{ESSAY_IMG}}": essay_html,
@@ -536,6 +539,240 @@ def handle_grade(req):
         essay_imgs.append(f"data:{img_mime};base64,{base64.b64encode(img_bytes).decode()}")
 
     html = render_report(grade_json, level, name, question_text, transcript, hw_score, hw_note, essay_imgs, question_imgs)
+    return html_to_pdf(html)
+
+
+# ---------------------------------------------------------------- 剑桥专项（KET / PET / FCE）
+def _cam_band(total, max_score):
+    p = (total / max_score) if max_score else 0
+    if p >= 0.9:
+        return "优秀 (Excellent)"
+    if p >= 0.75:
+        return "良好 (Good)"
+    if p >= 0.6:
+        return "合格 (Pass)"
+    return "待提升 (Below Pass)"
+
+
+MOCK_CAM_GRADE = {
+    "评分": {
+        "Content": {"分数": 4, "评语": "要点基本齐全，能看出你想表达的意思。"},
+        "Communicative Achievement": {"分数": 3, "评语": "语气大体合适，可再贴近文体要求。"},
+        "Organisation": {"分数": 4, "评语": "分段清楚，衔接自然。"},
+        "Language": {"分数": 3, "评语": "基础表达准确，个别时态可再稳。"},
+    },
+    "逐句批注": [
+        {"原句": "we go to the park", "改正": "we **went** to the park", "原因": ["上周的事用一般过去时", "go 是不规则动词"]},
+        {"原句": "It make me strong", "改正": "It **makes** me strong", "原因": ["主语 it 是三单", "三单现在时动词加 -s"]},
+    ],
+    "亮点": [{"表达": "I like playing football with my friend", "好在哪": "用 like doing 自然表达爱好"}],
+    "总评": "完成度不错，能清楚表达爱好与一次经历；再稳一稳时态会更棒。",
+    "修改建议": ["练一般过去时不规则动词", "三单现在时加 -s"],
+    "升格范文": "My name is Tom. I like playing football with my friends. Last weekend, we went to the park and played football together. It was a very happy day.",
+}
+
+
+def grade_cambridge(essay_text, question_text, exam_code, part_code, mock=False):
+    if mock:
+        return MOCK_CAM_GRADE
+    exam = next((e for e in CAMBRIDGE["exams"] if e["code"] == exam_code), None)
+    if not exam:
+        raise ValueError("未知考试")
+    part = next((p for p in exam["parts"] if p["code"] == part_code), None)
+    if not part:
+        raise ValueError("未知题型")
+    crit = part["criteria"]
+    crit_lines = [f"- {c}（{CAMBRIDGE['criteria'][c]['zh']}）：{CAMBRIDGE['criteria'][c]['desc']}" for c in crit]
+    crit_text = "\n".join(crit_lines)
+    sample_crit = ",\n".join(
+        f'    "{c}": {{"分数": 4, "评语": "温暖一句话：先肯定，再温和提可提升处"}}' for c in crit
+    )
+    sample = (
+        '{\n  "评分": {\n' + sample_crit + '\n  },\n'
+        '  "逐句批注": [{"原句": "原文句子", "改正": "改好的句子（把修正的词/短语用 **双星号** 标出）", "原因": ["分点原因1", "分点原因2"]}],\n'
+        '  "亮点": [{"表达": "用得好的词/句", "好在哪": "为什么好，一两句"}],\n'
+        '  "总评": "温暖鼓励的一段话：先肯定优点，再温和指出问题，结尾鼓励",\n'
+        '  "修改建议": ["具体可执行的建议"],\n'
+        '  "升格范文": "保留原意的改写全文；把用得好的词/短语/句式用 **双星号** 包起来（3–6 处）"\n}'
+    )
+    prompt = f"""你按剑桥英语考试 {exam['name']}（{exam['cefr']}）的写作评分标准批改。
+
+考试：{exam['name']}（{exam['cefr']}）
+题型：{part['label']}
+字数要求：{part['words']}
+本题满分：{part['max']} 分
+
+【作文题目】{question_text.strip() if question_text else '（未提供题目）'}
+
+【学生作文原文】（手写 OCR 转写，可能有错字；看不清处标「待确认」，不确定处不硬批）
+{essay_text}
+
+【评分标准】{len(crit)} 项，每项 0–5 分：
+{crit_text}
+（0=未作答/完全不可理解；3=达到该级别基本要求；5=优秀，目标读者完全理解/欣赏）
+
+批改要求：
+1. 严格按 {exam['name']} 的评分标准与题型要求判定，不要套用中高考或其它考试的标准。
+2. 逐句批改：只挑有错或可提升的句子；只要确有语法/用词/拼写错误，至少列 2 条；原句照抄；改正给正确写法，把修正的词用 **双星号** 标出（只标关键改动）；原因分点写，讲机制。
+3. 自然成立的多解不强行改。
+4. 升格范文保留原意，只修正语言；把用得好的词/短语/句式用 **双星号** 包起来（3–6 处）。
+5. 亮点每条都要说明「好在哪」。
+6. 所有评语用温暖鼓励的语气，先肯定再建议。
+
+输出 JSON（只输出 JSON，不要解释、不要代码块）：
+{sample}"""
+    raw = call_model(prompt)
+    return extract_json(raw)
+
+
+def render_cambridge_report(grade_json, exam_code, part_code, name, question_text, transcript, essay_imgs, question_imgs):
+    exam = next(e for e in CAMBRIDGE["exams"] if e["code"] == exam_code)
+    part = next(p for p in exam["parts"] if p["code"] == part_code)
+    crit = part["criteria"]
+    date = datetime.now().strftime("%Y-%m-%d")
+    wc = count_words(transcript)
+
+    scores = grade_json.get("评分") or {}
+    rows = []
+    total = 0
+    for c in crit:
+        item = scores.get(c) or {}
+        sc = item.get("分数", 0)
+        sc = 3 if not isinstance(sc, (int, float)) else int(round(sc))
+        sc = max(0, min(5, sc))
+        total += sc
+        rows.append(f'<tr><td>{c}（{CAMBRIDGE["criteria"][c]["zh"]}）</td><td class="right">{sc}</td><td>{escape(str(item.get("评语", "")))}</td></tr>')
+    total = max(0, min(part["max"], total))
+    band = _cam_band(total, part["max"])
+    rows.append(f'<tr class="total-row"><td>总分</td><td class="right">{total}</td><td>{band}</td></tr>')
+
+    ann_html = ""
+    ann_list = grade_json.get("逐句批注") or grade_json.get("逐句批改") or []
+    for a in ann_list:
+        ann_html += (
+            f'<tr><td>{escape(str(a.get("原句", "")))}</td>'
+            f'<td>{_bold(a.get("改正", ""))}</td>'
+            f'<td>{_reasons_html(a.get("原因", ""))}</td></tr>'
+        )
+    if not ann_html:
+        ann_html = '<tr><td colspan="3">（无批注）</td></tr>'
+
+    hl = grade_json.get("亮点") or []
+    if hl:
+        items = []
+        for x in hl:
+            if isinstance(x, dict):
+                e = escape(str(x.get("表达", x.get("亮点", ""))))
+                w = escape(str(x.get("好在哪", x.get("为什么", ""))))
+                items.append(f"<li><strong>{e}</strong>：{w}</li>")
+            else:
+                items.append(f"<li>{escape(str(x))}</li>")
+        hl_html = '<ul class="suggest">' + "".join(items) + "</ul>"
+    else:
+        hl_html = '<div class="note">（无明显亮点）</div>'
+    sug = grade_json.get("修改建议") or []
+    sug_html = '<ol class="suggest">' + "".join(f"<li>{escape(str(x))}</li>" for x in sug) + "</ol>" if sug else '<div class="note">（无）</div>'
+
+    if question_imgs:
+        q_inner = "".join(f'<img src="{u}" alt="题目截图">' for u in question_imgs)
+        q_block = f'<h2 class="sec">〇、作文题</h2><div class="essay-img">{q_inner}<div class="cap">题目截图</div></div>'
+    else:
+        q = (question_text or "").strip()
+        q_block = f'<h2 class="sec">〇、作文题</h2><div class="note">{escape(q) if q else "（未提供题目）"}</div>'
+
+    polished_html = _bold(str(grade_json.get("升格范文", "")) or "（无）")
+
+    if essay_imgs:
+        e_inner = "".join(f'<img src="{u}" alt="作文原稿">' for u in essay_imgs)
+        essay_html = f'{e_inner}<div class="cap">学生手写原稿</div>'
+    else:
+        essay_html = '<div class="note">（无作文图）</div>'
+
+    html = TEMPLATE
+    fill = {
+        "{{NAME}}": escape(name or "学生"),
+        "{{LEVEL}}": escape(f"{exam['name']} · {part['label']}"),
+        "{{TARGET}}": escape(part["words"]),
+        "{{WORDS}}": str(wc),
+        "{{DATE}}": date,
+        "{{TOTAL}}": str(total),
+        "{{MAX}}": str(part["max"]),
+        "{{SCORE_HEADER}}": f"{len(crit)} 项 × 5 分 = {part['max']} 分",
+        "{{BAND}}": band,
+        "{{QUESTION_BLOCK}}": q_block,
+        "{{ESSAY_IMG}}": essay_html,
+        "{{SCORE_TABLE}}": "".join(rows),
+        "{{ANNOTATIONS}}": ann_html,
+        "{{HIGHLIGHTS}}": hl_html,
+        "{{OVERALL}}": escape(str(grade_json.get("总评", "")) or "（无）"),
+        "{{SUGGESTIONS}}": sug_html,
+        "{{POLISHED}}": polished_html,
+    }
+    for token, val in fill.items():
+        html = html.replace(token, val)
+    return html
+
+
+def handle_grade_cam(req):
+    name = (req.get("name") or "").strip()
+    if not name:
+        raise ValueError("请填写学生姓名")
+    exam_code = (req.get("exam") or "").strip()
+    part_code = (req.get("part") or "").strip()
+    exam = next((e for e in CAMBRIDGE["exams"] if e["code"] == exam_code), None)
+    if not exam:
+        raise ValueError("请选择考试（KET/PET/FCE）")
+    part = next((p for p in exam["parts"] if p["code"] == part_code), None)
+    if not part:
+        raise ValueError("请选择写作题型")
+
+    mock = bool(req.get("mock")) or SERVER_MOCK
+
+    essay_b64s = [b for b in (req.get("essay_images") or []) if isinstance(b, str) and b.strip()]
+    if not essay_b64s:
+        single = (req.get("essay_image") or "").strip()
+        essay_b64s = [single] if single else []
+    if not essay_b64s:
+        raise ValueError("缺少作文图片")
+    essay_datas = [decode_image(b) for b in essay_b64s]
+
+    texts = []
+    for d in essay_datas:
+        if mock:
+            texts.append(MOCK_TRANSCRIPT)
+        else:
+            t, _, _ = transcribe(d)
+            texts.append(t or "")
+    transcript = "\n\n".join(t for t in texts if t)
+
+    question_text = (req.get("question_text") or "").strip()
+    q_b64s = [b for b in (req.get("question_images") or []) if isinstance(b, str) and b.strip()]
+    if not q_b64s:
+        single_q = (req.get("question_image") or "").strip()
+        q_b64s = [single_q] if single_q else []
+    question_imgs = []
+    q_texts = []
+    for b in q_b64s:
+        q_data = decode_image(b)
+        if not mock:
+            qt, _, _ = transcribe(q_data)
+            if qt:
+                q_texts.append(qt)
+        q_bytes, q_mime = _downscale_image(q_data)
+        question_imgs.append(f"data:{q_mime};base64,{base64.b64encode(q_bytes).decode()}")
+    question_for_grading = question_text
+    if q_texts:
+        extra = "\n".join(q_texts)
+        question_for_grading = (question_text + "\n" + extra).strip() if question_text else extra
+
+    grade_json = grade_cambridge(transcript, question_for_grading, exam_code, part_code, mock)
+
+    essay_imgs = []
+    for d in essay_datas:
+        img_bytes, img_mime = _downscale_image(d)
+        essay_imgs.append(f"data:{img_mime};base64,{base64.b64encode(img_bytes).decode()}")
+
+    html = render_cambridge_report(grade_json, exam_code, part_code, name, question_text, transcript, essay_imgs, question_imgs)
     return html_to_pdf(html)
 
 
@@ -660,7 +897,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?")[0]
-        if path not in ("/api/grade", "/api/diag"):
+        if path not in ("/api/grade", "/api/grade_cam", "/api/diag"):
             self._send(404, {"error": "not found"})
             return
         if not self._auth():
@@ -701,6 +938,38 @@ class Handler(BaseHTTPRequestHandler):
                         JOBS[job_id] = {"status": "error", "error": f"{type(e).__name__}: {e}", "ts": time.time()}
 
             threading.Thread(target=_run, daemon=True).start()
+            self._send(202, {"job_id": job_id, "status": "processing"})
+            return
+
+        if path == "/api/grade_cam":
+            # 同步校验：姓名需填、考试/题型有效
+            if not (req.get("name") or "").strip():
+                self._send(400, {"error": "请填写学生姓名"})
+                return
+            exam_code = (req.get("exam") or "").strip()
+            part_code = (req.get("part") or "").strip()
+            exam = next((e for e in CAMBRIDGE["exams"] if e["code"] == exam_code), None)
+            if not exam:
+                self._send(400, {"error": "请选择考试（KET/PET/FCE）"})
+                return
+            if not any(p["code"] == part_code for p in exam["parts"]):
+                self._send(400, {"error": "请选择写作题型"})
+                return
+            job_id = uuid.uuid4().hex[:12]
+            with JOBS_LOCK:
+                _prune_jobs()
+                JOBS[job_id] = {"status": "processing", "ts": time.time()}
+
+            def _run_cam():
+                try:
+                    pdf = handle_grade_cam(req)
+                    with JOBS_LOCK:
+                        JOBS[job_id] = {"status": "done", "pdf": pdf, "ts": time.time()}
+                except Exception as e:
+                    with JOBS_LOCK:
+                        JOBS[job_id] = {"status": "error", "error": f"{type(e).__name__}: {e}", "ts": time.time()}
+
+            threading.Thread(target=_run_cam, daemon=True).start()
             self._send(202, {"job_id": job_id, "status": "processing"})
             return
 
