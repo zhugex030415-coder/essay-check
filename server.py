@@ -327,8 +327,7 @@ def grade(essay_text, question_text, level, name="", mock=False):
     elem_lines = "\n".join(f"- {e}：{elem_desc[e]}" for e in elements)
     elem_sample = ",\n".join(f'    "{e}": {{"分数": 4, "评语": "对应档次的描述，一两句，温暖"}}' for e in elements)
     sample = (
-        '{\n  "档次": "第五档",\n  "分数": 22,\n'
-        '  "评分": {\n' + elem_sample + '\n  },\n'
+        '{\n  "评分": {\n' + elem_sample + '\n  },\n'
         '  "卷面备注": "字迹是否清楚（一两句，不计入分数）",\n'
         '  "逐句批注": [{"原句": "原文句子", "改正": "改好的句子（把修正的词/短语用 **双星号** 标出）", "原因": ["分点原因1", "分点原因2"]}],\n'
         '  "亮点": [{"表达": "用得好的词/句", "好在哪": "为什么好，一两句"}],\n'
@@ -351,16 +350,13 @@ def grade(essay_text, question_text, level, name="", mock=False):
 【学生作文原文】（手写 OCR 转写，可能有错字；看不清处标「待确认」，不确定处不硬批）
 {essay_text}
 
-【评分标准】按{sysd['name']}书面表达标准：先根据内容和语言整体确定档次，再在该档内给分（满分 25 分）。
-档次：
-{band_lines}
-
-评分要素（{len(elements)} 项）：
+【评分标准】按{sysd['name']}书面表达标准，{len(elements)} 个要素各 1–5 分（满分 {len(elements) * 5} 分），总分 = 各项之和。
+评分要素：
 {elem_lines}
 
 批改要求：
-1. **先定档、再给分**：总分必须落在你所选档次的分数区间内（例如第五档 21–25）。
-2. 「评分」里每个要素给一个 1–5 分的分数（5=优秀，与该档次对应）和一句评语；总分仍由先定档决定，各要素分数与所定档次相符。
+1. 每个要素给一个 1–5 分的分数（5=优秀）和一句温暖评语；总分由系统自动加总，你不用算。
+2. 各要素分数要客观准确、拉开差距：明显亮点给 4–5 分，明显问题给 1–2 分，不要全给 3 分敷衍。
 3. 逐句批改：只挑有错或可提升的句子；只要文中确有语法/用词/拼写错误，至少列 2 条；原句照抄原文；改正给正确写法，并把修正的词/短语用 **双星号** 标出（只标关键改动，不要整句标）；原因**分点写**，每点一句话，讲清机制。
 4. 自然成立的多解不强行改。
 5. 升格范文保留原意，只修正语言；把用得好的词/短语/句式用 **双星号** 包起来（3–6 处）；**要按原文逻辑分段，段与段之间用空行（两个换行）分隔**。
@@ -406,6 +402,20 @@ def _reasons_html(v):
     return '<ul class="reasons">' + "".join(f"<li>{escape(p)}</li>" for p in parts) + "</ul>"
 
 
+def _band_name(total, max_score):
+    """中高考档位：按总分占比落到五档。"""
+    p = (total / max_score) if max_score else 0
+    if p >= 0.85:
+        return "五档"
+    if p >= 0.70:
+        return "四档"
+    if p >= 0.55:
+        return "三档"
+    if p >= 0.40:
+        return "二档"
+    return "一档"
+
+
 def render_report(grade_json, level, name, question_text, transcript, hw_score, hw_note, essay_imgs=None, question_imgs=None):
     lv = RUBRIC["levels"][level]
     syskey = lv.get("system", "gaokao")
@@ -414,19 +424,10 @@ def render_report(grade_json, level, name, question_text, transcript, hw_score, 
     date = datetime.now().strftime("%Y-%m-%d")
     wc = count_words(transcript)
 
-    # 先定档、再给分（分数夹在档内）
-    band = next((b for b in RUBRIC["bands"] if b["name"] == grade_json.get("档次")), None)
-    try:
-        score = int(round(float(grade_json.get("分数"))))
-    except Exception:
-        score = 0
-    if band is None:
-        band = next((b for b in RUBRIC["bands"] if b["min"] <= score <= b["max"]), RUBRIC["bands"][-1])
-    score = max(band["min"], min(band["max"], score if score else band["min"]))
-    band_name = band["name"]
-
+    # 总分 = 各项之和
     elem_scores = grade_json.get("评分") or grade_json.get("要素评语") or {}
     rows = []
+    total = 0
     for e in elements:
         item = elem_scores.get(e) or {}
         if isinstance(item, dict):
@@ -436,8 +437,11 @@ def render_report(grade_json, level, name, question_text, transcript, hw_score, 
             sc = 0
             c = item
         sc = max(1, min(5, int(round(sc)))) if isinstance(sc, (int, float)) and sc else 0
+        total += sc
         rows.append(f'<tr><td>{e}</td><td class="right">{sc}</td><td>{escape(str(c))}</td></tr>')
-    rows.append(f'<tr class="total-row"><td>总分</td><td class="right">{score}</td><td>{band_name}</td></tr>')
+    max_score = len(elements) * 5
+    band_name = _band_name(total, max_score)
+    rows.append(f'<tr class="total-row"><td>总分</td><td class="right">{total}</td><td>{band_name}</td></tr>')
     score_th = '<th style="width:90px">要素</th><th style="width:50px">得分</th><th>评语</th>'
 
     # 卷面：仅备注，不计分
@@ -494,9 +498,9 @@ def render_report(grade_json, level, name, question_text, transcript, hw_score, 
         "{{TARGET}}": escape(lv["target"]),
         "{{WORDS}}": str(wc),
         "{{DATE}}": date,
-        "{{TOTAL}}": str(score),
-        "{{MAX}}": "25",
-        "{{SCORE_HEADER}}": f"{len(elements)} 项 · 先定档再给分（满分 25）",
+        "{{TOTAL}}": str(total),
+        "{{MAX}}": str(max_score),
+        "{{SCORE_HEADER}}": f"{len(elements)} 项 × 5 分（满分 {max_score}）",
         "{{SCORE_TH}}": score_th,
         "{{HW_NOTE}}": hw_note_html,
         "{{BAND}}": band_name,
