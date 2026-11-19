@@ -102,11 +102,11 @@ MOCK_TRANSCRIPT = (
 MOCK_GRADE = {
     "档次": "第四档",
     "分数": 18,
-    "要素评语": {
-        "内容要点": "要点基本齐全，介绍了爱好与一次经历",
-        "词汇与语法": "基础表达准确，个别时态可再稳（go→went、make→makes）",
-        "篇章连贯": "分段清楚、衔接自然",
-        "语言得体": "语气基本合适",
+    "评分": {
+        "内容要点": {"分数": 4, "评语": "要点基本齐全，介绍了爱好与一次经历"},
+        "词汇与语法": {"分数": 3, "评语": "基础表达准确，个别时态可再稳（go→went、make→makes）"},
+        "篇章连贯": {"分数": 4, "评语": "分段清楚、衔接自然"},
+        "语言得体": {"分数": 4, "评语": "语气基本合适"},
     },
     "卷面备注": "字迹清楚",
     "逐句批注": [
@@ -318,17 +318,17 @@ def grade(essay_text, question_text, level, name="", mock=False):
     elements = sysd["elements"]
     if mock:
         m = dict(MOCK_GRADE)
-        m["要素评语"] = {e: "示例评语（mock）" for e in elements}
+        m["评分"] = {e: {"分数": 4, "评语": "示例评语（mock）"} for e in elements}
         return m
     elem_desc = sysd["element_desc"]
     bands = RUBRIC["bands"]
 
     band_lines = "\n".join(f"- {b['name']}（{b['min']}–{b['max']}分）：{b['desc']}" for b in bands)
     elem_lines = "\n".join(f"- {e}：{elem_desc[e]}" for e in elements)
-    elem_sample = ",\n".join(f'    "{e}": "该要素的评语（对应档次的描述，一两句，温暖）"' for e in elements)
+    elem_sample = ",\n".join(f'    "{e}": {{"分数": 4, "评语": "对应档次的描述，一两句，温暖"}}' for e in elements)
     sample = (
         '{\n  "档次": "第五档",\n  "分数": 22,\n'
-        '  "要素评语": {\n' + elem_sample + '\n  },\n'
+        '  "评分": {\n' + elem_sample + '\n  },\n'
         '  "卷面备注": "字迹是否清楚（一两句，不计入分数）",\n'
         '  "逐句批注": [{"原句": "原文句子", "改正": "改好的句子（把修正的词/短语用 **双星号** 标出）", "原因": ["分点原因1", "分点原因2"]}],\n'
         '  "亮点": [{"表达": "用得好的词/句", "好在哪": "为什么好，一两句"}],\n'
@@ -360,10 +360,10 @@ def grade(essay_text, question_text, level, name="", mock=False):
 
 批改要求：
 1. **先定档、再给分**：总分必须落在你所选档次的分数区间内（例如第五档 21–25）。
-2. 「要素评语」每一项用一到两句概括该要素达到的程度（对应档次的描述），不要逐条打分。
+2. 「评分」里每个要素给一个 1–5 分的分数（5=优秀，与该档次对应）和一句评语；总分仍由先定档决定，各要素分数与所定档次相符。
 3. 逐句批改：只挑有错或可提升的句子；只要文中确有语法/用词/拼写错误，至少列 2 条；原句照抄原文；改正给正确写法，并把修正的词/短语用 **双星号** 标出（只标关键改动，不要整句标）；原因**分点写**，每点一句话，讲清机制。
 4. 自然成立的多解不强行改。
-5. 升格范文保留原意，只修正语言；把用得好的词/短语/句式用 **双星号** 包起来（3–6 处）。
+5. 升格范文保留原意，只修正语言；把用得好的词/短语/句式用 **双星号** 包起来（3–6 处）；**要按原文逻辑分段，段与段之间用空行（两个换行）分隔**。
 6. 「亮点」每条都要说明「好在哪」。
 7. 所有评语用温暖鼓励的语气：先肯定，再温和指出问题，给出具体可行的改进方向。
 8. 「卷面备注」只描述字迹是否清楚，**不计入分数**。
@@ -425,13 +425,20 @@ def render_report(grade_json, level, name, question_text, transcript, hw_score, 
     score = max(band["min"], min(band["max"], score if score else band["min"]))
     band_name = band["name"]
 
-    elem_comments = grade_json.get("要素评语") or {}
+    elem_scores = grade_json.get("评分") or grade_json.get("要素评语") or {}
     rows = []
     for e in elements:
-        c = elem_comments.get(e) or ""
-        rows.append(f'<tr><td>{e}</td><td>{escape(str(c))}</td></tr>')
-    rows.append(f'<tr class="total-row"><td>总分</td><td>{score} / 25 · {band_name}</td></tr>')
-    score_th = '<th style="width:110px">要素</th><th>评语（对应档次）</th>'
+        item = elem_scores.get(e) or {}
+        if isinstance(item, dict):
+            sc = item.get("分数", 0)
+            c = item.get("评语", "")
+        else:
+            sc = 0
+            c = item
+        sc = max(1, min(5, int(round(sc)))) if isinstance(sc, (int, float)) and sc else 0
+        rows.append(f'<tr><td>{e}</td><td class="right">{sc}</td><td>{escape(str(c))}</td></tr>')
+    rows.append(f'<tr class="total-row"><td>总分</td><td class="right">{score}</td><td>{band_name}</td></tr>')
+    score_th = '<th style="width:90px">要素</th><th style="width:50px">得分</th><th>评语</th>'
 
     # 卷面：仅备注，不计分
     hw_score = max(1, min(5, hw_score or 3))
@@ -472,7 +479,7 @@ def render_report(grade_json, level, name, question_text, transcript, hw_score, 
         q = (question_text or "").strip()
         q_block = f'<h2 class="sec">〇、作文题</h2><div class="note">{escape(q) if q else "（未提供题目）"}</div>'
 
-    polished_html = _bold(str(grade_json.get("升格范文", "")) or "（无）")
+    polished_html = _bold(str(grade_json.get("升格范文", "")) or "（无）").replace("\n", "<br>")
 
     if essay_imgs:
         e_inner = "".join(f'<img src="{u}" alt="作文原稿">' for u in essay_imgs)
@@ -719,7 +726,7 @@ def render_cambridge_report(grade_json, exam_code, part_code, name, question_tex
         q = (question_text or "").strip()
         q_block = f'<h2 class="sec">〇、作文题</h2><div class="note">{escape(q) if q else "（未提供题目）"}</div>'
 
-    polished_html = _bold(str(grade_json.get("升格范文", "")) or "（无）")
+    polished_html = _bold(str(grade_json.get("升格范文", "")) or "（无）").replace("\n", "<br>")
 
     if essay_imgs:
         e_inner = "".join(f'<img src="{u}" alt="作文原稿">' for u in essay_imgs)
