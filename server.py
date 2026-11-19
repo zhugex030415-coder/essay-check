@@ -19,9 +19,11 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 from datetime import datetime
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -54,6 +56,16 @@ OCR_API = os.environ.get("OCR_API") or CONFIG.get("ocr", {}).get("api", "https:/
 OCR_MODEL = os.environ.get("OCR_MODEL") or CONFIG.get("ocr", {}).get("model", "")
 # 公网部署时设置访问码，防止别人白用你的额度
 ACCESS_CODE = os.environ.get("ACCESS_CODE", "").strip()
+
+# 异步任务队列（任务号 -> {status, pdf, error, ts}），带锁，支持多人并发
+JOBS = {}
+JOBS_LOCK = threading.Lock()
+
+
+def _prune_jobs():
+    now = time.time()
+    for k in [k for k, v in JOBS.items() if now - v.get("ts", 0) > 900]:
+        JOBS.pop(k, None)
 
 RUBRIC = json.loads((ROOT / "rubric.json").read_text(encoding="utf-8"))
 TEMPLATE = (ROOT / "report_template.html").read_text(encoding="utf-8")
@@ -531,6 +543,31 @@ class Handler(BaseHTTPRequestHandler):
                 result.update(vision_ok=False, elapsed=round(_t.time() - t0, 1), error=f"{type(e).__name__}: {str(e)[:90]}")
             self._send(200, result)
             return
+        if p == "/api/result":
+            if not self._auth():
+                self._send(401, {"error": "需要访问码"})
+                return
+            jid = ""
+            if "?" in self.path:
+                for kv in self.path.split("?", 1)[1].split("&"):
+                    if kv.startswith("job_id="):
+                        jid = kv.split("=", 1)[1]
+            job = JOBS.get(jid)
+            if not job:
+                self._send(404, {"error": "任务不存在或已过期"})
+                return
+            st = job.get("status")
+            if st == "processing":
+                self._send(200, {"status": "processing"})
+                return
+            if st == "error":
+                self._send(200, {"status": "error", "error": job.get("error", "")})
+                return
+            pdf = job.get("pdf") or b""
+            with JOBS_LOCK:
+                JOBS.pop(jid, None)
+            self._send(200, pdf, "application/pdf")
+            return
         name = "index.html" if p in ("/", "/index.html") else p.lstrip("/")
         f = (ROOT / name).resolve()
         if not str(f).startswith(str(ROOT.resolve())) or not f.is_file():
@@ -598,12 +635,24 @@ class Handler(BaseHTTPRequestHandler):
                 step = self.path.split("step=", 1)[1].split("&")[0]
             self._send(200, self._diag(req, step))
             return
-        try:
-            pdf = handle_grade(req)
-        except Exception as e:
-            self._send(500, {"error": f"{type(e).__name__}: {e}"})
+        if path == "/api/grade":
+            job_id = uuid.uuid4().hex[:12]
+            with JOBS_LOCK:
+                _prune_jobs()
+                JOBS[job_id] = {"status": "processing", "ts": time.time()}
+
+            def _run():
+                try:
+                    pdf = handle_grade(req)
+                    with JOBS_LOCK:
+                        JOBS[job_id] = {"status": "done", "pdf": pdf, "ts": time.time()}
+                except Exception as e:
+                    with JOBS_LOCK:
+                        JOBS[job_id] = {"status": "error", "error": f"{type(e).__name__}: {e}", "ts": time.time()}
+
+            threading.Thread(target=_run, daemon=True).start()
+            self._send(202, {"job_id": job_id, "status": "processing"})
             return
-        self._send(200, pdf, "application/pdf")
 
 
 SERVER_MOCK = False
