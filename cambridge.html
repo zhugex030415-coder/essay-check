@@ -105,7 +105,7 @@ select:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-vis
   </div>
 
   <div class="qline">
-    <label for="questionText">作文题目（可选，整批共用）：可以打字，也可以直接 Ctrl+V 粘贴题目截图（可多张）</label>
+    <label for="questionText">作文题目（必填，整批共用）：可以打字，也可以直接 Ctrl+V 粘贴题目截图（可多张）</label>
     <textarea id="questionText" placeholder="例如：Write an email to your friend about your weekend.（也可以直接在这里 Ctrl+V 粘贴截图）"></textarea>
     <div class="previews" id="qPreview"></div>
     <button type="button" class="pick" id="qPick">＋ 加题目截图</button>
@@ -257,6 +257,7 @@ async function processRow(row, exam, part, qtext, qimgs){
 document.getElementById('runAll').addEventListener('click',async()=>{
   const exam=examSel.value; if(!exam){ overall.textContent='请先选择考试'; overall.className=''; return; }
   const part=partSel.value; if(!part){ overall.textContent='请先选择题型'; overall.className=''; return; }
+  if(!qText.value.trim() && !qImages.length){ overall.textContent='请先填写作文题目'; overall.className=''; return; }
   const todo=rows.filter(r=>r.images.length && !r.running);
   if(!todo.length){ overall.textContent='还没放学生作文截图'; overall.className=''; return; }
   const noName=todo.filter(r=>!r.nameInput.value.trim());
