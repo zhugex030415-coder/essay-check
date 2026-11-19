@@ -183,6 +183,21 @@ kbd{
 .drop-sm{padding:20px 16px}
 .drop-sm .drop-ico{width:34px; height:34px; margin-bottom:8px; border-radius:10px}
 
+/* ── 学生作文行（单篇=1 行，批量=多行）────────────── */
+.row{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); padding:16px; margin-bottom:12px; box-shadow:var(--sh-1)}
+.row-head{display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap}
+.row-idx{width:24px; height:24px; flex:none; display:grid; place-items:center; border-radius:7px; background:var(--surface-2); border:1px solid var(--line); color:var(--ink-2); font-family:var(--latin); font-size:11px; font-weight:600}
+.row-name{flex:1; min-width:120px; font-family:inherit; font-size:14px; padding:9px 11px; border:1px solid var(--line-2); border-radius:var(--r-sm); background:var(--surface); color:var(--ink); height:40px}
+.row-status{flex:none; font-size:12px; color:var(--ink-3); min-width:80px; text-align:right; font-variant-numeric:tabular-nums}
+.row-status.ok{color:var(--ok)}
+.row-status.err{color:var(--err)}
+.row-dl{flex:none; font-size:12px; font-weight:600; color:var(--red-600); text-decoration:none; border-bottom:1px solid var(--red-200); display:none}
+.row-remove{flex:none; font-family:inherit; font-size:12px; color:var(--ink-3); background:none; border:none; padding:4px 6px; cursor:pointer; border-radius:6px}
+.row-remove:hover{color:var(--err); background:var(--red-50)}
+.row .drop{padding:20px 16px}
+.add-row{display:inline-flex; align-items:center; justify-content:center; width:100%; min-height:46px; margin-top:2px; border:1px dashed var(--line-2); border-radius:var(--r-md); background:var(--surface); color:var(--ink-2); font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:border-color .15s, background .15s, color .15s}
+.add-row:hover{border-color:var(--red-400); background:var(--red-50); color:var(--red-600)}
+
 /* ── 主操作 ───────────────────────────────────────────── */
 .actionbar{display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:24px}
 .btn{
@@ -267,9 +282,7 @@ kbd{
       <span class="brand-txt"><b>赤舟国际教育</b><i>作文批改工作台</i></span>
     </a>
     <p class="topmeta"><span class="dot" aria-hidden="true"></span>本地运行 · 图片不出本机</p>
-    <a class="batch-link" id="batchLink" href="/batch.html" style="margin-left:12px;font-size:12px;color:#8b1a1a;font-weight:600;text-decoration:underline">中高考批量 →</a>
-    <a class="batch-link" id="camLink" href="/cambridge.html" style="margin-left:10px;font-size:12px;color:#8b1a1a;font-weight:600;text-decoration:underline">剑桥单篇 →</a>
-    <a class="batch-link" id="camBatchLink" href="/cambridge_batch.html" style="margin-left:10px;font-size:12px;color:#8b1a1a;font-weight:600;text-decoration:underline">剑桥批量 →</a>
+    <a class="batch-link" id="camLink" href="/cambridge.html" style="margin-left:12px;font-size:12px;color:#8b1a1a;font-weight:600;text-decoration:underline">剑桥 KET/PET/FCE →</a>
   </div>
 </header>
 
@@ -281,69 +294,48 @@ kbd{
       <span class="seg">OCR 转写原文</span><span class="seg"><i class="arr" aria-hidden="true">→</i>五维打分</span><span class="seg"><i class="arr" aria-hidden="true">→</i>逐句批改</span><span class="seg"><i class="arr" aria-hidden="true">→</i>保留原意的升格范文</span><span class="seg"><i class="arr" aria-hidden="true">→</i>可直接打印的 PDF</span>
     </p>
     <ul class="dims" aria-label="评分维度">
-      <li>内容要点</li><li>语法准确</li><li>词汇运用</li><li>篇章结构</li><li>书写卷面</li>
+      <li>内容</li><li>词汇与语法</li><li>篇章连贯</li><li>语言得体</li><li>先定档再给分</li>
     </ul>
   </section>
 
   <section class="step">
     <div class="step-head">
       <span class="num" aria-hidden="true">01</span>
-      <h2>学生信息</h2>
+      <h2>学生级别</h2>
       <span class="chip req">必填</span>
     </div>
-    <p class="note">级别决定批改难度，对标剑桥与中高考。</p>
-    <div class="grid2">
-      <div class="field">
-        <label for="name">学生姓名</label>
-        <input type="text" id="name" name="student" autocomplete="off" spellcheck="false" placeholder="如：王小明…">
-      </div>
-      <div class="field">
-        <label for="level">学生级别</label>
-        <select id="level" name="level"></select>
-      </div>
+    <p class="note">级别决定批改难度：中考档用「内容 / 语言 / 结构」，高考档用「4 要素 + 先定档」。</p>
+    <div class="field">
+      <label for="level">学生级别</label>
+      <select id="level" name="level"></select>
     </div>
   </section>
 
   <section class="step">
     <div class="step-head">
       <span class="num" aria-hidden="true">02</span>
-      <h2>学生作文截图</h2>
-      <span class="chip req">必填</span>
+      <h2>作文题目</h2>
+      <span class="chip">可选</span>
     </div>
-    <p class="note">学生手写的那一篇；一页写不完可以分多张拍 / 贴。</p>
-    <div class="drop" id="eZone" tabindex="0" role="button" aria-label="上传或粘贴学生作文截图">
-      <div class="drop-ico" aria-hidden="true">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-      </div>
-      <b class="big">【学生作文】点这里，按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴</b>
-      <span class="sub">学生实际写的那篇，别贴成题目 · 也可拖入或 <span class="link" id="ePick">选择文件</span></span>
-      <div class="previews" id="ePreview"></div>
+    <p class="note">可以打字，也可以直接 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴题目截图（可多张）；整批共用，没有可留空。</p>
+    <div class="field">
+      <label for="questionText">题目（文字或截图）</label>
+      <textarea id="questionText" placeholder="例如：My Favourite Sport（至少 80 词）…  也可以直接在这里 Ctrl+V 粘贴截图"></textarea>
+      <div class="previews" id="qPreview"></div>
+      <button type="button" id="qPick" class="link" style="margin-top:10px;background:none;border:none;font-family:inherit;font-size:13px">＋ 加题目截图</button>
+      <input type="file" id="qFile" accept="image/*" multiple hidden>
     </div>
-    <input type="file" id="eFile" accept="image/*" hidden>
   </section>
 
   <section class="step">
     <div class="step-head">
       <span class="num" aria-hidden="true">03</span>
-      <h2>作文题目</h2>
-      <span class="chip">可选</span>
+      <h2>学生作文</h2>
+      <span class="chip req">必填</span>
     </div>
-    <p class="note">老师给的题目：截图就直接贴截图（会进报告），文字就打文字；没有可留空。</p>
-    <div class="field">
-      <label for="questionText">题目文字</label>
-      <textarea id="questionText" placeholder="例如：My Favourite Sport（至少 80 词）…"></textarea>
-    </div>
-    <div class="field">
-      <div class="drop drop-sm" id="qZone" tabindex="0" role="button" aria-label="上传或粘贴题目截图">
-        <div class="drop-ico" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5 21 9l-9.5 9.5H6V13z"/><path d="M3 21h18" opacity=".45"/></svg>
-        </div>
-        <b class="big">【题目 / 写作要求】截图贴这里</b>
-        <span class="sub">老师布置的题目，别贴成学生作文 · 可 <span class="link" id="qPick">选择文件</span> 或按 <kbd>Ctrl</kbd>+<kbd>V</kbd></span>
-        <div class="previews" id="qPreview"></div>
-      </div>
-      <input type="file" id="qFile" accept="image/*" hidden>
-    </div>
+    <p class="note">把作文截图贴进来；有多位学生就点「再加一篇」。一页写不完可以多张。</p>
+    <div id="rows"></div>
+    <button type="button" class="add-row" id="addRow">＋ 再加一篇学生作文</button>
   </section>
 
   <div class="actionbar">
@@ -355,11 +347,7 @@ kbd{
   </div>
   <div class="progress" id="progress" aria-hidden="true"><i></i></div>
 
-  <div class="result" id="downloadWrap" role="region" aria-label="生成结果">
-    <div class="res-ico" aria-hidden="true">PDF</div>
-    <div class="res-txt"><b id="resName">作文批改.pdf</b><span>报告已生成，可直接打印或发家长</span></div>
-    <a class="btn-ghost" id="downloadLink">再下载一次</a>
-  </div>
+  <div id="results"></div>
 
   <p class="fineprint">一次批改约 1–2 分钟（OCR + 批改 + 排版）；PDF 用红黑灰讲义版式，A4 可直接打印。</p>
 </main>
@@ -385,15 +373,8 @@ LEVELS.forEach(([code, target]) => {
   sel.appendChild(o);
 });
 
-let essayImages = [], questionImages = [];
-
-function getClipboardImage(e) {
-  const items = (e.clipboardData && e.clipboardData.items) || [];
-  for (const it of items) {
-    if (it.type && it.type.startsWith('image/')) return it.getAsFile();
-  }
-  return null;
-}
+const accessCode = new URLSearchParams(location.search).get('code') || '';
+document.getElementById('camLink').href = '/cambridge.html' + (location.search || '');
 
 function compressImage(dataUrl, maxW, cb) {
   const img = new Image();
@@ -407,161 +388,245 @@ function compressImage(dataUrl, maxW, cb) {
   };
   img.src = dataUrl;
 }
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
 
-function bindZone(zone, pick, fileInput, preview, onChange) {
-  let imgs = [];
+// ── 题目统一输入：同一处打字或粘贴截图 ─────────────────
+let questionImgs = [];
+const qText = document.getElementById('questionText');
+const qPreview = document.getElementById('qPreview');
+const qFile = document.getElementById('qFile');
+const qPick = document.getElementById('qPick');
+function renderQ() {
+  qPreview.innerHTML = questionImgs.map((src, i) =>
+    `<span class="thumb"><img src="${src}" alt="题目截图"><button class="thumb-x" data-i="${i}" title="移除">×</button></span>`
+  ).join('');
+  qPreview.style.display = questionImgs.length ? 'flex' : 'none';
+}
+function addQFiles(files) {
+  for (const f of files) {
+    if (!f.type || !f.type.startsWith('image/')) continue;
+    const r = new FileReader();
+    r.onload = () => compressImage(r.result, 1600, (c) => { questionImgs.push(c); renderQ(); });
+    r.readAsDataURL(f);
+  }
+}
+qText.addEventListener('paste', (e) => {
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  const files = [];
+  for (const it of items) if (it.type && it.type.startsWith('image/')) files.push(it.getAsFile());
+  if (files.length) { e.preventDefault(); addQFiles(files); }
+});
+qText.addEventListener('dragover', (e) => { if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) e.preventDefault(); });
+qText.addEventListener('drop', (e) => {
+  const imgs = Array.from((e.dataTransfer && e.dataTransfer.files) || []).filter(f => f.type.startsWith('image/'));
+  if (imgs.length) { e.preventDefault(); addQFiles(imgs); }
+});
+qPick.addEventListener('click', () => qFile.click());
+qFile.addEventListener('change', () => { addQFiles(Array.from(qFile.files || [])); qFile.value = ''; });
+qPreview.addEventListener('click', (e) => {
+  if (e.target.classList && e.target.classList.contains('thumb-x')) {
+    e.stopPropagation();
+    questionImgs.splice(+e.target.dataset.i, 1);
+    renderQ();
+  }
+});
+
+// ── 学生作文行：默认 1 行（单篇），按钮加行（批量）────────
+const rowsEl = document.getElementById('rows');
+const rows = [];
+function makeRow() {
+  const el = document.createElement('div');
+  el.className = 'row';
+  el.innerHTML = `
+    <div class="row-head">
+      <span class="row-idx"></span>
+      <input class="row-name" placeholder="学生姓名（必填）">
+      <span class="row-status">未添加</span>
+      <a class="row-dl" target="_blank">下载 PDF</a>
+      <button type="button" class="row-remove" title="删除这一行">删除</button>
+    </div>
+    <div class="drop" tabindex="0" role="button">
+      <b class="big">【学生作文】点这里，按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴</b>
+      <span class="sub">学生实际写的那篇，别贴成题目 · 也可拖入或 <span class="link">选择文件</span></span>
+      <div class="previews"></div>
+    </div>
+    <input type="file" accept="image/*" multiple hidden>
+  `;
+  const drop = el.querySelector('.drop');
+  const previews = el.querySelector('.previews');
+  const fileInput = el.querySelector('input[type=file]');
+  const pick = el.querySelector('.link');
+  const nameInput = el.querySelector('.row-name');
+  const statusEl = el.querySelector('.row-status');
+  const dl = el.querySelector('.row-dl');
+  const row = { el, images: [], nameInput, statusEl, dl, running: false };
   function render() {
-    preview.innerHTML = imgs.map((src, i) =>
-      `<span class="thumb"><img src="${src}" alt="预览"><button class="thumb-x" data-i="${i}" title="移除这张">×</button></span>`
+    previews.innerHTML = row.images.map((src, i) =>
+      `<span class="thumb"><img src="${src}" alt="作文截图"><button class="thumb-x" data-i="${i}" title="移除">×</button></span>`
     ).join('');
-    zone.classList.toggle('has-img', imgs.length > 0);
-    onChange(imgs.slice());
+    drop.classList.toggle('has-img', row.images.length > 0);
+    if (row.images.length && !row.running) setRowStatus(row, '待提交');
+    row.statusEl.className = 'row-status';
   }
   function addFiles(files) {
     for (const f of files) {
       if (!f.type || !f.type.startsWith('image/')) continue;
       const r = new FileReader();
-      r.onload = () => compressImage(r.result, 1600, (c) => { imgs.push(c); render(); });
+      r.onload = () => compressImage(r.result, 1600, (c) => { row.images.push(c); render(); });
       r.readAsDataURL(f);
     }
   }
-  zone.addEventListener('click', (e) => {
+  drop.addEventListener('click', (e) => {
     if (e.target === pick) return;
     if (e.target.classList && e.target.classList.contains('thumb-x')) {
       e.stopPropagation();
-      imgs.splice(+e.target.dataset.i, 1);
+      row.images.splice(+e.target.dataset.i, 1);
       render();
       return;
     }
-    zone.focus();
-    zone.classList.remove('drag');
+    drop.focus();
   });
-  zone.addEventListener('paste', (e) => {
+  drop.addEventListener('paste', (e) => {
     const items = (e.clipboardData && e.clipboardData.items) || [];
     const files = [];
     for (const it of items) if (it.type && it.type.startsWith('image/')) files.push(it.getAsFile());
     if (files.length) { e.preventDefault(); addFiles(files); }
   });
-  zone.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
-  });
-  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
-  zone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    zone.classList.remove('drag');
-    addFiles(Array.from(e.dataTransfer.files || []));
-  });
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('drag'); addFiles(Array.from(e.dataTransfer.files || [])); });
+  drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
   pick.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
-  fileInput.multiple = true;
-  fileInput.addEventListener('change', () => {
-    addFiles(Array.from(fileInput.files || []));
-    fileInput.value = '';
+  fileInput.addEventListener('change', () => { addFiles(Array.from(fileInput.files || [])); fileInput.value = ''; });
+  el.querySelector('.row-remove').addEventListener('click', () => {
+    if (row.running) return;
+    if (rows.length <= 1) { setStatus('至少保留一篇。', 'err'); return; }
+    const i = rows.indexOf(row);
+    if (i >= 0) rows.splice(i, 1);
+    el.remove();
+    renumber();
   });
+  rows.push(row);
+  rowsEl.appendChild(el);
+  renumber();
+  return row;
 }
-
-bindZone(
-  document.getElementById('eZone'), document.getElementById('ePick'),
-  document.getElementById('eFile'), document.getElementById('ePreview'),
-  (arr) => { essayImages = arr; }
-);
-bindZone(
-  document.getElementById('qZone'), document.getElementById('qPick'),
-  document.getElementById('qFile'), document.getElementById('qPreview'),
-  (arr) => { questionImages = arr; }
-);
-
-function today() {
-  const d = new Date();
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+function renumber() {
+  rows.forEach((r, i) => { const n = r.el.querySelector('.row-idx'); if (n) n.textContent = i + 1; });
 }
 
 const btn = document.getElementById('btn');
 const btnLabel = btn.querySelector('.btn-label');
 const statusEl = document.getElementById('status');
 const progress = document.getElementById('progress');
-const downloadWrap = document.getElementById('downloadWrap');
-const downloadLink = document.getElementById('downloadLink');
-const resName = document.getElementById('resName');
 
 function setStatus(msg, cls) {
   statusEl.textContent = msg;
   statusEl.className = 'status' + (cls ? ' ' + cls : '');
 }
+function setRowStatus(row, text, cls) {
+  row.statusEl.textContent = text;
+  row.statusEl.className = 'row-status' + (cls ? ' ' + cls : '');
+}
 function setBusy(on) {
   btn.disabled = on;
   btn.setAttribute('aria-busy', on ? 'true' : 'false');
   btn.classList.toggle('busy', on);
-  btnLabel.textContent = on ? '批改中…' : '批改并生成 PDF';
   progress.classList.toggle('on', on);
+  if (!on) { const n = rows.filter(r => r.images.length).length; btnLabel.textContent = n > 1 ? `全部批改（${n} 篇）` : '批改并生成 PDF'; }
+  else btnLabel.textContent = '批改中…';
 }
 
-let accessCode = new URLSearchParams(location.search).get('code') || '';
-document.getElementById('batchLink').href = '/batch.html' + (location.search || '');
-document.getElementById('camLink').href = '/cambridge.html' + (location.search || '');
-document.getElementById('camBatchLink').href = '/cambridge_batch.html' + (location.search || '');
+document.getElementById('addRow').addEventListener('click', () => makeRow());
+makeRow();  // 默认 1 行
 
-btn.addEventListener('click', async () => {
-  if (btn.disabled) return;
-  const name = document.getElementById('name').value.trim();
-  if (!name) { setStatus('请先填写学生姓名。', 'err'); document.getElementById('name').focus(); return; }
-  const level = sel.value;
-  if (!level) { setStatus('请先选择学生级别。', 'err'); sel.focus(); return; }
-  if (!essayImages.length) { setStatus('还没放作文截图 —— 回到第 02 步粘贴或上传。', 'err'); document.getElementById('eZone').focus(); return; }
-  const payload = {
-    name,
-    level,
-    question_text: document.getElementById('questionText').value.trim(),
-    question_images: questionImages,
-    essay_images: essayImages,
-  };
-  downloadWrap.classList.remove('on');
-  setBusy(true);
-  setStatus('OCR 转写 → 批改 → 排版，约 1–2 分钟，先别关页面。');
+async function gradeOne(row, level, qtext, qimgs) {
+  row.running = true;
+  setRowStatus(row, '提交中…', '');
+  row.dl.style.display = 'none';
   try {
-    const submit = () => fetch('/api/grade', {
+    const resp = await fetch('/api/grade', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Access-Code': accessCode },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        name: row.nameInput.value.trim(),
+        level,
+        question_text: qtext,
+        question_images: qimgs,
+        essay_images: row.images,
+      }),
     });
-    let resp = await submit();
     if (resp.status === 401) {
       const code = (prompt('这个页面需要访问码，请输入：') || '').trim();
-      if (code) { accessCode = code; resp = await submit(); }
+      if (code) accessCode = code;
     }
     if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ error: 'HTTP ' + resp.status }));
-      throw new Error(err.error || ('HTTP ' + resp.status));
+      const e = await resp.json().catch(() => ({ error: 'HTTP ' + resp.status }));
+      throw new Error(e.error || ('HTTP ' + resp.status));
     }
-    const j = await resp.json();
+    const job = await resp.json();
     const started = Date.now();
     while (true) {
       await new Promise(r => setTimeout(r, 3000));
-      const pr = await fetch(`/api/result?job_id=${encodeURIComponent(j.job_id)}`, { headers: { 'X-Access-Code': accessCode } });
-      if (pr.status === 404) throw new Error('任务不存在或已过期，请重试');
-      const ctype = pr.headers.get('Content-Type') || '';
-      if (pr.status === 200 && ctype.indexOf('application/pdf') >= 0) {
+      const pr = await fetch(`/api/result?job_id=${encodeURIComponent(job.job_id)}`, { headers: { 'X-Access-Code': accessCode } });
+      if (pr.status === 404) throw new Error('任务过期，请重试');
+      const ct = pr.headers.get('Content-Type') || '';
+      if (ct.indexOf('application/pdf') >= 0) {
         const blob = await pr.blob();
         const url = URL.createObjectURL(blob);
-        const fname = `作文批改-${name}-${level}-${today()}.pdf`;
-        const a = document.createElement('a');
-        a.href = url; a.download = fname;
+        const fname = `作文批改-${row.nameInput.value.trim()}-${level}-${today()}.pdf`;
+        const a = document.createElement('a'); a.href = url; a.download = fname;
         document.body.appendChild(a); a.click(); a.remove();
-        downloadLink.href = url; downloadLink.download = fname;
-        resName.textContent = fname;
-        downloadWrap.classList.add('on');
-        setStatus(`完成（用时 ${Math.round((Date.now() - started) / 1000)} 秒），PDF 已开始下载。`, 'ok');
-        return;
+        row.dl.href = url; row.dl.download = fname; row.dl.style.display = 'inline';
+        setRowStatus(row, `完成 ${Math.round((Date.now() - started) / 1000)}s`, 'ok');
+        break;
       }
       const jr = await pr.json().catch(() => ({}));
       if (jr.status === 'error') throw new Error(jr.error || '批改失败');
-      setStatus(`批改中… 已等待 ${Math.round((Date.now() - started) / 1000)} 秒（约 1–2 分钟，先别关页面）`, '');
+      setRowStatus(row, `处理中 ${Math.round((Date.now() - started) / 1000)}s`, '');
     }
   } catch (e) {
-    setStatus('失败：' + e.message, 'err');
+    setRowStatus(row, '失败：' + e.message, 'err');
   } finally {
-    setBusy(false);
+    row.running = false;
   }
+}
+
+btn.addEventListener('click', async () => {
+  if (btn.disabled) return;
+  const level = sel.value;
+  if (!level) { setStatus('请先选择学生级别。', 'err'); sel.focus(); return; }
+  const todo = rows.filter(r => r.images.length && !r.running);
+  if (!todo.length) { setStatus('还没放作文截图。', 'err'); return; }
+  const noName = todo.filter(r => !r.nameInput.value.trim());
+  if (noName.length) {
+    noName.forEach(r => setRowStatus(r, '请填姓名', 'err'));
+    setStatus(`有 ${noName.length} 篇没填姓名。`, 'err');
+    return;
+  }
+  const qtext = qText.value.trim();
+  const qimgs = questionImgs.slice();
+  setBusy(true);
+  setStatus(`批改中：共 ${todo.length} 篇，同时跑 2 篇，先别关页面。`);
+  let next = 0, done = 0;
+  const CONCURRENCY = 2;
+  async function worker() {
+    while (true) {
+      const i = next++;
+      if (i >= todo.length) return;
+      await gradeOne(todo[i], level, qtext, qimgs);
+      done++;
+      setStatus(`进度 ${done} / ${todo.length}（先别关页面）`);
+    }
+  }
+  const ws = [];
+  for (let i = 0; i < Math.min(CONCURRENCY, todo.length); i++) ws.push(worker());
+  await Promise.all(ws);
+  setStatus(`全部完成 ${done} / ${todo.length}，PDF 已下载。`, 'ok');
+  setBusy(false);
 });
 </script>
 </body>
