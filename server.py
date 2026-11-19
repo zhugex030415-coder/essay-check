@@ -549,8 +549,22 @@ class Handler(BaseHTTPRequestHandler):
                     code = kv[5:]
         return code == ACCESS_CODE
 
+    def _diag(self, req):
+        import time as _t
+        timings = {}
+        try:
+            data = decode_image((req.get("essay_image") or "").strip())
+            t = _t.time(); text, hw, note = transcribe(data); timings["ocr"] = round(_t.time() - t, 1); timings["ocr_len"] = len(text)
+            t = _t.time(); gj = grade(text or "x", req.get("question_text") or "", req.get("level") or "中L1"); timings["grade"] = round(_t.time() - t, 1)
+            t = _t.time(); html = render_report(gj, req.get("level") or "中L1", "diag", req.get("question_text") or "", text or "", hw, note, ""); timings["render"] = round(_t.time() - t, 1)
+            t = _t.time(); pdf = html_to_pdf(html); timings["pdf"] = round(_t.time() - t, 1); timings["pdf_bytes"] = len(pdf)
+            timings["ok"] = True
+        except Exception as e:
+            timings["ok"] = False; timings["error"] = f"{type(e).__name__}: {str(e)[:120]}"
+        return timings
+
     def do_POST(self):
-        if self.path != "/api/grade":
+        if self.path not in ("/api/grade", "/api/diag"):
             self._send(404, {"error": "not found"})
             return
         if not self._auth():
@@ -561,6 +575,9 @@ class Handler(BaseHTTPRequestHandler):
             req = json.loads(self.rfile.read(n).decode("utf-8"))
         except Exception as e:
             self._send(400, {"error": f"bad json: {e}"})
+            return
+        if self.path == "/api/diag":
+            self._send(200, self._diag(req))
             return
         try:
             pdf = handle_grade(req)
