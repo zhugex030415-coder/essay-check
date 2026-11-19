@@ -199,7 +199,7 @@ def call_chat(api, key, payload):
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=300) as r:
+        with urllib.request.urlopen(req, timeout=120) as r:
             data = json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "ignore")[:400]
@@ -268,7 +268,7 @@ def ocr_vision(data: bytes):
         "thinking": {"type": "disabled"},
     }
     last = None
-    for attempt in range(4):
+    for attempt in range(3):
         try:
             raw = call_chat(OCR_API, OCR_KEY, payload)
             j = extract_json(raw)
@@ -500,6 +500,22 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         p = self.path.split("?")[0]
+        if p == "/api/ping":
+            def reachable(url, key):
+                try:
+                    headers = {"Authorization": f"Bearer {key}"} if key else {}
+                    r = urllib.request.Request(url, headers=headers)
+                    with urllib.request.urlopen(r, timeout=8) as resp:
+                        return resp.status
+                except Exception as e:
+                    return f"{type(e).__name__}: {str(e)[:70]}"
+            self._send(200, {
+                "ocr_provider": OCR_PROVIDER,
+                "ocr_model": OCR_MODEL,
+                "ark": reachable(OCR_API.replace("/chat/completions", "/models"), OCR_KEY),
+                "deepseek": reachable("https://api.deepseek.com/models", API_KEY),
+            })
+            return
         name = "index.html" if p in ("/", "/index.html") else p.lstrip("/")
         f = (ROOT / name).resolve()
         if not str(f).startswith(str(ROOT.resolve())) or not f.is_file():
