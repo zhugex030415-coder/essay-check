@@ -129,8 +129,10 @@ const LEVELS = [
   ["中L3","AEIM L3 · PET优 · 高二"],["高L1","FCE过 · 高考 B2"],["高L2","FCE优 · 六级 B2–C1"],
 ];
 const levelSel = document.getElementById('level');
+const ph = document.createElement('option');
+ph.value = ''; ph.textContent = '请选择级别'; ph.disabled = true; ph.selected = true;
+levelSel.appendChild(ph);
 LEVELS.forEach(([c,t]) => { const o=document.createElement('option'); o.value=c; o.textContent=`${c}（${t}）`; levelSel.appendChild(o); });
-levelSel.value = '中L1';
 
 const accessCode = new URLSearchParams(location.search).get('code') || '';
 document.getElementById('backLink').href = '/' + (location.search || '');
@@ -252,9 +254,17 @@ async function processRow(row, level){
 }
 
 document.getElementById('runAll').addEventListener('click', async ()=>{
+  const level = levelSel.value;
+  if (!level){ overall.textContent = '请先选择级别'; overall.className=''; return; }
   const todo = rows.filter(r => r.data && !r.running);
   if (!todo.length){ overall.textContent = '还没有可批改的作文'; overall.className=''; return; }
-  const level = levelSel.value;
+  const noName = todo.filter(r => !r.nameInput.value.trim());
+  if (noName.length){
+    noName.forEach(r => setStatus(r, '请填姓名', 'err'));
+    overall.textContent = `有 ${noName.length} 篇没填姓名`;
+    overall.className = '';
+    return;
+  }
   const runBtn = document.getElementById('runAll');
   runBtn.disabled = true;
   let next = 0, done = 0;
