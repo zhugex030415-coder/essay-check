@@ -493,30 +493,44 @@ btn.addEventListener('click', async () => {
   setBusy(true);
   setStatus('OCR 转写 → 批改 → 排版，约 1–2 分钟，先别关页面。');
   try {
-    const doFetch = () => fetch('/api/grade', {
+    const submit = () => fetch('/api/grade', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Access-Code': accessCode },
       body: JSON.stringify(payload),
     });
-    let resp = await doFetch();
+    let resp = await submit();
     if (resp.status === 401) {
       const code = (prompt('这个页面需要访问码，请输入：') || '').trim();
-      if (code) { accessCode = code; resp = await doFetch(); }
+      if (code) { accessCode = code; resp = await submit(); }
     }
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: 'HTTP ' + resp.status }));
       throw new Error(err.error || ('HTTP ' + resp.status));
     }
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const fname = `作文批改-${name}-${level}-${today()}.pdf`;
-    const a = document.createElement('a');
-    a.href = url; a.download = fname;
-    document.body.appendChild(a); a.click(); a.remove();
-    downloadLink.href = url; downloadLink.download = fname;
-    resName.textContent = fname;
-    downloadWrap.classList.add('on');
-    setStatus('完成了，PDF 已开始下载。', 'ok');
+    const j = await resp.json();
+    const started = Date.now();
+    while (true) {
+      await new Promise(r => setTimeout(r, 3000));
+      const pr = await fetch(`/api/result?job_id=${encodeURIComponent(j.job_id)}`, { headers: { 'X-Access-Code': accessCode } });
+      if (pr.status === 404) throw new Error('任务不存在或已过期，请重试');
+      const ctype = pr.headers.get('Content-Type') || '';
+      if (pr.status === 200 && ctype.indexOf('application/pdf') >= 0) {
+        const blob = await pr.blob();
+        const url = URL.createObjectURL(blob);
+        const fname = `作文批改-${name}-${level}-${today()}.pdf`;
+        const a = document.createElement('a');
+        a.href = url; a.download = fname;
+        document.body.appendChild(a); a.click(); a.remove();
+        downloadLink.href = url; downloadLink.download = fname;
+        resName.textContent = fname;
+        downloadWrap.classList.add('on');
+        setStatus(`完成（用时 ${Math.round((Date.now() - started) / 1000)} 秒），PDF 已开始下载。`, 'ok');
+        return;
+      }
+      const jr = await pr.json().catch(() => ({}));
+      if (jr.status === 'error') throw new Error(jr.error || '批改失败');
+      setStatus(`批改中… 已等待 ${Math.round((Date.now() - started) / 1000)} 秒（约 1–2 分钟，先别关页面）`, '');
+    }
   } catch (e) {
     setStatus('失败：' + e.message, 'err');
   } finally {
