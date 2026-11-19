@@ -1,0 +1,5 @@
+config.json
+__pycache__/
+*.pyc
+_test_*
+*.pdf
