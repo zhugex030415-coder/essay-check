@@ -100,17 +100,20 @@ MOCK_TRANSCRIPT = (
     "I think football is the best sport. It make me strong and happy."
 )
 MOCK_GRADE = {
-    "评分": {
-        "内容要点": {"分数": 4, "评语": "要点基本齐全，介绍了爱好与一次经历"},
-        "语法准确": {"分数": 3, "评语": "过去时混用（go→went）、三单漏 s（make→makes）"},
-        "词汇运用": {"分数": 3, "评语": "基础词汇够用，可再丰富"},
-        "篇章结构": {"分数": 4, "评语": "分段清楚、衔接自然"},
+    "档次": "第四档",
+    "分数": 18,
+    "要素评语": {
+        "内容要点": "要点基本齐全，介绍了爱好与一次经历",
+        "词汇与语法": "基础表达准确，个别时态可再稳（go→went、make→makes）",
+        "篇章连贯": "分段清楚、衔接自然",
+        "语言得体": "语气基本合适",
     },
+    "卷面备注": "字迹清楚",
     "逐句批注": [
-        {"原句": "we go to the park", "改正": "we went to the park", "原因": "上周的事用一般过去时，go 是不规则动词"},
-        {"原句": "It make me strong", "改正": "It makes me strong", "原因": "主语 it 是第三人称单数，make 加 -s"},
+        {"原句": "we go to the park", "改正": "we **went** to the park", "原因": ["上周的事用一般过去时", "go 是不规则动词"]},
+        {"原句": "It make me strong", "改正": "It **makes** me strong", "原因": ["主语 it 是三单", "三单现在时动词加 -s"]},
     ],
-    "亮点": ["I like playing football with my friend", "I think football is the best sport"],
+    "亮点": [{"表达": "I like playing football with my friend", "好在哪": "用 like doing 自然表达爱好"}],
     "总评": "能清楚表达爱好和经历，要点齐全；主要问题是过去时与三单时态，属该级别高频错误。",
     "修改建议": ["练一般过去时不规则动词（go/went、make/made）", "三单现在时动词加 -s 的专项练习"],
     "升格范文": "My name is Tom. I like playing football with my friends. Last weekend, we went to the park and played football together. It was a very happy day. I think football is the best sport. It makes me strong and happy.",
@@ -309,17 +312,34 @@ def transcribe(data: bytes):
 
 
 def grade(essay_text, question_text, level, name="", mock=False):
-    if mock:
-        return MOCK_GRADE
     lv = RUBRIC["levels"][level]
-    desc = RUBRIC["dimension_descriptors"]
-    dim_lines = []
-    for d in ["内容要点", "语法准确", "词汇运用", "篇章结构"]:
-        dd = desc[d]
-        dim_lines.append(f"- {d}：1分={dd['1']}；2分={dd['2']}；3分={dd['3']}；4分={dd['4']}；5分={dd['5']}")
-    dim_text = "\n".join(dim_lines)
+    syskey = lv.get("system", "gaokao")
+    sysd = RUBRIC["systems"][syskey]
+    elements = sysd["elements"]
+    if mock:
+        m = dict(MOCK_GRADE)
+        m["要素评语"] = {e: "示例评语（mock）" for e in elements}
+        return m
+    elem_desc = sysd["element_desc"]
+    bands = RUBRIC["bands"]
 
-    prompt = f"""学生级别：{level}（{lv['target']}）
+    band_lines = "\n".join(f"- {b['name']}（{b['min']}–{b['max']}分）：{b['desc']}" for b in bands)
+    elem_lines = "\n".join(f"- {e}：{elem_desc[e]}" for e in elements)
+    elem_sample = ",\n".join(f'    "{e}": "该要素的评语（对应档次的描述，一两句，温暖）"' for e in elements)
+    sample = (
+        '{\n  "档次": "第五档",\n  "分数": 22,\n'
+        '  "要素评语": {\n' + elem_sample + '\n  },\n'
+        '  "卷面备注": "字迹是否清楚（一两句，不计入分数）",\n'
+        '  "逐句批注": [{"原句": "原文句子", "改正": "改好的句子（把修正的词/短语用 **双星号** 标出）", "原因": ["分点原因1", "分点原因2"]}],\n'
+        '  "亮点": [{"表达": "用得好的词/句", "好在哪": "为什么好，一两句"}],\n'
+        '  "总评": "温暖鼓励的一段话",\n'
+        '  "修改建议": ["具体可执行的建议"],\n'
+        '  "升格范文": "保留原意的改写全文；把用得好的词/短语/句式用 **双星号** 包起来（3–6 处）"\n}'
+    )
+
+    prompt = f"""你是英语作文批改老师，严格按学生级别对应的「{sysd['name']}书面表达」评分标准批改。
+
+学生级别：{level}（{lv['target']}）
 学生姓名：{name or '（未填写）'}（以此为准；不要从作文正文、落款或邮件署名里提取或替换姓名）
 建议字数：{lv['words'][0]}–{lv['words'][1]} 词
 该级语法范围：{lv['grammar']}
@@ -331,23 +351,27 @@ def grade(essay_text, question_text, level, name="", mock=False):
 【学生作文原文】（手写 OCR 转写，可能有错字；看不清处标「待确认」，不确定处不硬批）
 {essay_text}
 
-【评分标准】5 个维度，每维 1–5 分，总分 25：
-{dim_text}
-- 书写卷面：由视觉模型另算，你不用打这维。
+【评分标准】按{sysd['name']}书面表达标准：先根据内容和语言整体确定档次，再在该档内给分（满分 25 分）。
+档次：
+{band_lines}
+
+评分要素（{len(elements)} 项）：
+{elem_lines}
 
 批改要求：
-1. 语法准确、词汇运用两维按上面的「该级语法范围」判定，不要用更高/更低级别的标准。
-2. 逐句批改：只挑有错或可提升的句子；**只要文中确有语法/用词/拼写错误，逐句批注就至少列 2 条、不能为空**；原句照抄原文；改正给正确写法，并把修正的词/短语用 **双星号** 标出（只标关键改动，不要整句标）；原因**分点写**，每点一句话，讲清机制（为什么错），不要堆成一大段。
-3. 自然成立的多解不强行改。
-4. 升格范文保留原意，只修正语言，不改变内容与结构骨架；同时把用得好的词/短语/句式用 **双星号** 包起来（3–6 处，只标亮点词句，不标普通词），便于在 PDF 里加粗。
-5. 「亮点」不能只列表达，每条都要说明「好在哪」（为什么好、起了什么作用），一两句话。
-6. 所有评语都用温暖鼓励的语气：先肯定学生的努力和优点，再温和指出问题，语气亲切，给出具体可行的改进方向；避免冷冰冰的评分腔，也不要说打击人的话。**每个维度的评语也要温暖**：先肯定该维度的亮点，再用「如果能……会更棒」这类温和说法指出可提升处，不要只写「有错误」「不够」。总评要像老师在跟学生当面聊天，先夸再建议、结尾给鼓励。
+1. **先定档、再给分**：总分必须落在你所选档次的分数区间内（例如第五档 21–25）。
+2. 「要素评语」每一项用一到两句概括该要素达到的程度（对应档次的描述），不要逐条打分。
+3. 逐句批改：只挑有错或可提升的句子；只要文中确有语法/用词/拼写错误，至少列 2 条；原句照抄原文；改正给正确写法，并把修正的词/短语用 **双星号** 标出（只标关键改动，不要整句标）；原因**分点写**，每点一句话，讲清机制。
+4. 自然成立的多解不强行改。
+5. 升格范文保留原意，只修正语言；把用得好的词/短语/句式用 **双星号** 包起来（3–6 处）。
+6. 「亮点」每条都要说明「好在哪」。
+7. 所有评语用温暖鼓励的语气：先肯定，再温和指出问题，给出具体可行的改进方向。
+8. 「卷面备注」只描述字迹是否清楚，**不计入分数**。
 
 输出 JSON（只输出 JSON，不要解释、不要代码块）：
-{JSON_SCHEMA}"""
+{sample}"""
     raw = call_model(prompt)
     result = extract_json(raw)
-    # 兜底：模型偶尔不给「逐句批注」，为空时单独再要一次
     if not (result.get("逐句批注") or []):
         try:
             fix_prompt = (
@@ -384,23 +408,35 @@ def _reasons_html(v):
 
 def render_report(grade_json, level, name, question_text, transcript, hw_score, hw_note, essay_imgs=None, question_imgs=None):
     lv = RUBRIC["levels"][level]
+    syskey = lv.get("system", "gaokao")
+    sysd = RUBRIC["systems"][syskey]
+    elements = sysd["elements"]
     date = datetime.now().strftime("%Y-%m-%d")
     wc = count_words(transcript)
 
-    scores = grade_json.get("评分") or {}
+    # 先定档、再给分（分数夹在档内）
+    band = next((b for b in RUBRIC["bands"] if b["name"] == grade_json.get("档次")), None)
+    try:
+        score = int(round(float(grade_json.get("分数"))))
+    except Exception:
+        score = 0
+    if band is None:
+        band = next((b for b in RUBRIC["bands"] if b["min"] <= score <= b["max"]), RUBRIC["bands"][-1])
+    score = max(band["min"], min(band["max"], score if score else band["min"]))
+    band_name = band["name"]
+
+    elem_comments = grade_json.get("要素评语") or {}
     rows = []
-    total = hw_score
-    for d in ["内容要点", "语法准确", "词汇运用", "篇章结构"]:
-        item = scores.get(d) or {}
-        sc = item.get("分数", 0)
-        sc = 3 if not isinstance(sc, (int, float)) else int(round(sc))
-        sc = max(1, min(5, sc))
-        total += sc
-        rows.append(f'<tr><td>{d}</td><td class="right">{sc}</td><td>{escape(str(item.get("评语", "")))}</td></tr>')
-    rows.append(f'<tr><td>书写卷面</td><td class="right">{hw_score}</td><td>{escape(hw_note)}</td></tr>')
-    total = max(5, min(25, total))
-    band = next((b["name"] for b in RUBRIC["bands"] if b["min"] <= total <= b["max"]), "一档")
-    rows.append(f'<tr class="total-row"><td>总分</td><td class="right">{total}</td><td>{band}</td></tr>')
+    for e in elements:
+        c = elem_comments.get(e) or ""
+        rows.append(f'<tr><td>{e}</td><td>{escape(str(c))}</td></tr>')
+    rows.append(f'<tr class="total-row"><td>总分</td><td>{score} / 25 · {band_name}</td></tr>')
+    score_th = '<th style="width:110px">要素</th><th>评语（对应档次）</th>'
+
+    # 卷面：仅备注，不计分
+    hw_score = max(1, min(5, hw_score or 3))
+    hw_text = (hw_note or "").strip() or "字迹基本可读"
+    hw_note_html = f'<div class="note"><span class="label">卷面</span>（视觉模型 {hw_score}/5，不计入分数）{escape(hw_text)}</div>'
 
     ann_html = ""
     ann_list = grade_json.get("逐句批注") or grade_json.get("逐句批改") or []
@@ -436,10 +472,8 @@ def render_report(grade_json, level, name, question_text, transcript, hw_score, 
         q = (question_text or "").strip()
         q_block = f'<h2 class="sec">〇、作文题</h2><div class="note">{escape(q) if q else "（未提供题目）"}</div>'
 
-    # 升格范文：把 **好词好句** 转成加粗
     polished_html = _bold(str(grade_json.get("升格范文", "")) or "（无）")
 
-    # 作文原图（可多张）
     if essay_imgs:
         e_inner = "".join(f'<img src="{u}" alt="作文原稿">' for u in essay_imgs)
         essay_html = f'{e_inner}<div class="cap">学生手写原稿</div>'
@@ -453,10 +487,12 @@ def render_report(grade_json, level, name, question_text, transcript, hw_score, 
         "{{TARGET}}": escape(lv["target"]),
         "{{WORDS}}": str(wc),
         "{{DATE}}": date,
-        "{{TOTAL}}": str(total),
+        "{{TOTAL}}": str(score),
         "{{MAX}}": "25",
-        "{{SCORE_HEADER}}": "5 维 × 5 分 = 25 分",
-        "{{BAND}}": band,
+        "{{SCORE_HEADER}}": f"{len(elements)} 项 · 先定档再给分（满分 25）",
+        "{{SCORE_TH}}": score_th,
+        "{{HW_NOTE}}": hw_note_html,
+        "{{BAND}}": band_name,
         "{{QUESTION_BLOCK}}": q_block,
         "{{ESSAY_IMG}}": essay_html,
         "{{SCORE_TABLE}}": "".join(rows),
@@ -599,7 +635,9 @@ def grade_cambridge(essay_text, question_text, exam_code, part_code, mock=False)
 
 考试：{exam['name']}（{exam['cefr']}）
 题型：{part['label']}
-字数要求：{part['words']}
+题型要求：{part.get('task', '')}
+最低字数：{part['words']}
+高分目标字数：{part.get('words_high', part['words'])}（达到此字数说明内容展开更充分，是拿高分的重要信号）
 本题满分：{part['max']} 分
 
 【作文题目】{question_text.strip() if question_text else '（未提供题目）'}
@@ -618,6 +656,7 @@ def grade_cambridge(essay_text, question_text, exam_code, part_code, mock=False)
 4. 升格范文保留原意，只修正语言；把用得好的词/短语/句式用 **双星号** 包起来（3–6 处）。
 5. 亮点每条都要说明「好在哪」。
 6. 所有评语用温暖鼓励的语气，先肯定再建议。
+7. 字数：明显低于最低字数（{part['words']}）时，在 Content 评语里温和指出「篇幅偏短、要点展开不足」；接近或达到高分目标字数（{part.get('words_high', part['words'])}）时，肯定其内容展开充分。
 
 输出 JSON（只输出 JSON，不要解释、不要代码块）：
 {sample}"""
@@ -692,12 +731,14 @@ def render_cambridge_report(grade_json, exam_code, part_code, name, question_tex
     fill = {
         "{{NAME}}": escape(name or "学生"),
         "{{LEVEL}}": escape(f"{exam['name']} · {part['label']}"),
-        "{{TARGET}}": escape(part["words"]),
+        "{{TARGET}}": escape(f"{part['words']} · {part.get('words_high','')}"),
         "{{WORDS}}": str(wc),
         "{{DATE}}": date,
         "{{TOTAL}}": str(total),
         "{{MAX}}": str(part["max"]),
         "{{SCORE_HEADER}}": f"{len(crit)} 项 × 5 分 = {part['max']} 分",
+        "{{SCORE_TH}}": '<th style="width:90px">维度</th><th style="width:50px">得分</th><th>评语</th>',
+        "{{HW_NOTE}}": "",
         "{{BAND}}": band,
         "{{QUESTION_BLOCK}}": q_block,
         "{{ESSAY_IMG}}": essay_html,
