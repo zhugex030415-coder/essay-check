@@ -44,7 +44,7 @@ ul.reasons li{ margin:2px 0; }
 <div class="cover">
   <h1>{{NAME}} · 作文批改报告</h1>
   <div class="sub">{{LEVEL}}（{{TARGET}}）｜ 字数 {{WORDS}} 词 ｜ {{DATE}}</div>
-  <div class="score">总分 {{TOTAL}} / 25 ｜ {{BAND}}</div>
+  <div class="score">总分 {{TOTAL}} / {{MAX}} ｜ {{BAND}}</div>
 </div>
 
 {{QUESTION_BLOCK}}
@@ -52,7 +52,7 @@ ul.reasons li{ margin:2px 0; }
 <h2 class="sec">一、作文原稿</h2>
 <div class="essay-img">{{ESSAY_IMG}}</div>
 
-<h2 class="sec">二、评分表（5 维 × 5 分 = 25 分）</h2>
+<h2 class="sec">二、评分表（{{SCORE_HEADER}}）</h2>
 <table>
   <tr><th style="width:90px">维度</th><th style="width:50px">得分</th><th>评语</th></tr>
   {{SCORE_TABLE}}
