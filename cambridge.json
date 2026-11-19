@@ -11,11 +11,11 @@
       "name": "A2 Key (KET)",
       "cefr": "A2",
       "parts": [
-        {"code": "K-P6", "label": "Part 6 · 短邮件 / 便条", "words": "≥25 词", "max": 15,
-         "task": "根据三个提示点，写一封简短的邮件或便条。",
+        {"code": "K-1", "label": "第 1 题 · 短邮件 / 便条", "words": "≥25 词", "words_high": "高分约 50 词", "max": 15,
+         "task": "根据三个提示点写一封短邮件或便条（覆盖全部三个要点）。",
          "criteria": ["Content", "Organisation", "Language"]},
-        {"code": "K-P7", "label": "Part 7 · 看图写故事", "words": "≥35 词", "max": 15,
-         "task": "根据三幅图，写一个简短的故事。",
+        {"code": "K-2", "label": "第 2 题 · 看图写故事", "words": "≥35 词", "words_high": "高分约 70 词", "max": 15,
+         "task": "根据三幅图写一个短故事（三幅图的内容都要写到）。",
          "criteria": ["Content", "Organisation", "Language"]}
       ]
     },
@@ -24,11 +24,11 @@
       "name": "B1 Preliminary (PET)",
       "cefr": "B1",
       "parts": [
-        {"code": "P-P1", "label": "Part 1 · 邮件", "words": "约 100 词", "max": 20,
-         "task": "读一封邮件和四个要点提示，写回信。",
+        {"code": "P-1", "label": "第 1 题 · 邮件", "words": "约 100 词", "words_high": "高分 130–160 词", "max": 20,
+         "task": "读一封邮件和四个要点提示，写回信（四个要点都要回应）。",
          "criteria": ["Content", "Communicative Achievement", "Organisation", "Language"]},
-        {"code": "P-P2", "label": "Part 2 · 文章 / 故事", "words": "约 100 词", "max": 20,
-         "task": "从文章（article）或故事（story）中选一个写。",
+        {"code": "P-2", "label": "第 2 题 · 文章 / 故事", "words": "约 100 词", "words_high": "高分 130–160 词", "max": 20,
+         "task": "从文章（article）或故事（story）中选一个写（故事须用题目给的第一句开头）。",
          "criteria": ["Content", "Communicative Achievement", "Organisation", "Language"]}
       ]
     },
@@ -37,11 +37,11 @@
       "name": "B2 First (FCE)",
       "cefr": "B2",
       "parts": [
-        {"code": "F-P1", "label": "Part 1 · 议论文（Essay）", "words": "140–190 词", "max": 20,
-         "task": "就一个论点写议论文：表达立场、给出理由与例子、比较观点。",
+        {"code": "F-1", "label": "第 1 题 · 议论文（Essay）", "words": "140–190 词", "words_high": "140–190 词", "max": 20,
+         "task": "就一个论点写议论文：表达立场、给理由和例子、回应两个提示点，并给出自己的新观点。",
          "criteria": ["Content", "Communicative Achievement", "Organisation", "Language"]},
-        {"code": "F-P2", "label": "Part 2 · 文章/邮件/信/报告/评论/故事", "words": "140–190 词", "max": 20,
-         "task": "从文章、邮件/信、报告、评论、故事中选一种文体写。",
+        {"code": "F-2", "label": "第 2 题 · 文章/邮件/信/报告/评论/故事", "words": "140–190 词", "words_high": "140–190 词", "max": 20,
+         "task": "从文章、邮件/信、报告、评论、故事中选一种文体写（完全符合所选文体的格式与语气）。",
          "criteria": ["Content", "Communicative Achievement", "Organisation", "Language"]}
       ]
     }
