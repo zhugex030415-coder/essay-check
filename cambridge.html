@@ -74,7 +74,7 @@ select{font-family:inherit;font-size:15px;padding:10px 32px 10px 12px;border:1px
   <div class="in">
     <h1>赤舟作文批改 · 剑桥专项</h1>
     <p>按 KET / PET / FCE 官方写作评分标准批改（题型不同、分值不同）</p>
-    <p style="margin-top:8px"><a href="/">← 单篇（中高考版）</a><a href="/batch.html">批量模式</a></p>
+    <p style="margin-top:8px"><a href="/">中高考单篇</a><a href="/batch.html">中高考批量</a><a href="/cambridge_batch.html">剑桥批量</a></p>
   </div>
 </header>
 <main>
@@ -181,7 +181,9 @@ function fillParts(){
   const e = CAM.exams.find(x=>x.code===exam);
   partSel.innerHTML='';
   e.parts.forEach(p=>{
-    const o=document.createElement('option'); o.value=p.code; o.textContent=`${p.label}（${p.words}，${p.max} 分）`; partSel.appendChild(o);
+    const o=document.createElement('option'); o.value=p.code;
+    o.textContent=`${p.label}｜最低 ${p.words}｜${p.words_high || p.words}（${p.max} 分）`;
+    partSel.appendChild(o);
   });
 }
 
