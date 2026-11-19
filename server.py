@@ -516,6 +516,21 @@ class Handler(BaseHTTPRequestHandler):
                 "deepseek": reachable("https://api.deepseek.com/models", API_KEY),
             })
             return
+        if p == "/api/ping2":
+            import time as _t
+            tiny = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+            result = {}
+            t0 = _t.time()
+            try:
+                payload = {"model": OCR_MODEL, "messages": [{"role": "user", "content": [
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64," + tiny}},
+                    {"type": "text", "text": "reply hi"}]}], "max_tokens": 10, "thinking": {"type": "disabled"}}
+                raw = call_chat(OCR_API, OCR_KEY, payload)
+                result.update(vision_ok=True, elapsed=round(_t.time() - t0, 1), reply=(raw or "")[:30])
+            except Exception as e:
+                result.update(vision_ok=False, elapsed=round(_t.time() - t0, 1), error=f"{type(e).__name__}: {str(e)[:90]}")
+            self._send(200, result)
+            return
         name = "index.html" if p in ("/", "/index.html") else p.lstrip("/")
         f = (ROOT / name).resolve()
         if not str(f).startswith(str(ROOT.resolve())) or not f.is_file():
