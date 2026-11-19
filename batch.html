@@ -79,8 +79,12 @@ select:focus-visible,button:focus-visible,input:focus-visible,.zone:focus-visibl
 .zone:focus{border-color:var(--red-600);background:var(--red-50);color:var(--red-600)}
 .zone.has{border-style:solid;border-color:var(--line);background:#fff;padding:10px}
 .zone .pick{color:var(--red-600);font-weight:600;text-decoration:underline}
-.zone img{max-width:100%;max-height:120px;border-radius:6px;display:none}
-.zone.has .hint,.zone.has img+.hint{display:none}
+.previews{display:none;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px}
+.zone.has .previews{display:flex}
+.zone.has .hint{display:none}
+.thumb{position:relative}
+.thumb img{display:block;max-width:120px;max-height:90px;border-radius:6px;border:1px solid var(--line)}
+.thumb-x{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:none;background:var(--red-600);color:#fff;font-size:12px;line-height:20px;cursor:pointer;padding:0}
 
 @media (max-width:720px){
   .steps{grid-template-columns:1fr}
@@ -94,7 +98,7 @@ select:focus-visible,button:focus-visible,input:focus-visible,.zone:focus-visibl
   <div class="in">
     <h1>赤舟作文批改 · 批量模式</h1>
     <p>一次放好几篇，填好姓名，排队自动出每份 PDF</p>
-    <p style="margin-top:8px"><a href="/" id="backLink">← 返回单篇模式</a></p>
+    <p style="margin-top:8px"><a href="/">中高考单篇</a><a href="/cambridge.html">剑桥单篇</a><a href="/cambridge_batch.html">剑桥批量</a></p>
   </div>
 </header>
 <main>
@@ -135,7 +139,6 @@ levelSel.appendChild(ph);
 LEVELS.forEach(([c,t]) => { const o=document.createElement('option'); o.value=c; o.textContent=`${c}（${t}）`; levelSel.appendChild(o); });
 
 const accessCode = new URLSearchParams(location.search).get('code') || '';
-document.getElementById('backLink').href = '/' + (location.search || '');
 const rowsEl = document.getElementById('rows');
 const overall = document.getElementById('overall');
 const rows = [];
@@ -160,36 +163,42 @@ function makeRow(){
   el.innerHTML = `
     <div class="row-head">
       <span class="idx"></span>
-      <input class="name" placeholder="学生姓名（可留空）">
+      <input class="name" placeholder="学生姓名（必填）">
       <span class="status">未添加</span>
       <a class="dl" target="_blank">下载 PDF</a>
       <button class="remove" title="删除这一行">删除</button>
     </div>
     <div class="zone" tabindex="0">
-      <span class="hint">点这里粘贴截图，或 <b class="pick">选择文件</b></span>
-      <img class="preview" alt="作文截图预览">
+      <span class="hint">点这里粘贴截图，可多张；或 <b class="pick">选择文件</b></span>
+      <div class="previews"></div>
     </div>
-    <input type="file" accept="image/*" hidden>
+    <input type="file" accept="image/*" multiple hidden>
   `;
-  const zone = el.querySelector('.zone'), preview = el.querySelector('.preview'), fileInput = el.querySelector('input[type=file]');
+  const zone = el.querySelector('.zone'), previews = el.querySelector('.previews'), fileInput = el.querySelector('input[type=file]');
   const pick = el.querySelector('.pick'), dl = el.querySelector('.dl'), nameInput = el.querySelector('.name'), statusEl = el.querySelector('.status');
-  const row = { el, data:'', statusEl, dl, nameInput, running:false };
-  function setImage(dataUrl){
-    compressImage(dataUrl, 1600, (compressed) => {
-      row.data = compressed; preview.src = compressed; preview.style.display='block'; zone.classList.add('has');
-      setStatus(row, '待提交');
-    });
+  const row = { el, images:[], statusEl, dl, nameInput, running:false };
+  function render(){
+    previews.innerHTML = row.images.map((src,i)=>`<span class="thumb"><img src="${src}"><button class="thumb-x" data-i="${i}">×</button></span>`).join('');
+    zone.classList.toggle('has', row.images.length>0);
+    if(row.images.length) setStatus(row, '待提交');
   }
-  function setImageByFile(file){ const r=new FileReader(); r.onload=()=>setImage(r.result); r.readAsDataURL(file); }
-  zone.addEventListener('click', (e)=>{ if (e.target!==pick) zone.focus(); });
+  function addFiles(files){
+    for(const f of files){ if(!f.type||!f.type.startsWith('image/')) continue; const r=new FileReader(); r.onload=()=>compressImage(r.result,1600,(c)=>{row.images.push(c);render();}); r.readAsDataURL(f); }
+  }
+  zone.addEventListener('click', (e)=>{
+    if(e.target===pick) return;
+    if(e.target.classList&&e.target.classList.contains('thumb-x')){ e.stopPropagation(); row.images.splice(+e.target.dataset.i,1); render(); return; }
+    zone.focus();
+  });
   zone.addEventListener('paste', (e)=>{
-    const items = (e.clipboardData && e.clipboardData.items) || [];
-    for (const it of items){ if (it.type && it.type.startsWith('image/')){ e.preventDefault(); setImageByFile(it.getAsFile()); return; } }
+    const items=(e.clipboardData&&e.clipboardData.items)||[]; const fs=[];
+    for(const it of items) if(it.type&&it.type.startsWith('image/')) fs.push(it.getAsFile());
+    if(fs.length){ e.preventDefault(); addFiles(fs); }
   });
   zone.addEventListener('dragover', (e)=>e.preventDefault());
-  zone.addEventListener('drop', (e)=>{ e.preventDefault(); const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) setImageByFile(f); });
+  zone.addEventListener('drop', (e)=>{ e.preventDefault(); addFiles(Array.from(e.dataTransfer.files||[])); });
   pick.addEventListener('click', (e)=>{ e.stopPropagation(); fileInput.click(); });
-  fileInput.addEventListener('change', ()=>{ if (fileInput.files&&fileInput.files[0]) setImageByFile(fileInput.files[0]); });
+  fileInput.addEventListener('change', ()=>{ addFiles(Array.from(fileInput.files||[])); fileInput.value=''; });
   el.querySelector('.remove').addEventListener('click', ()=>{
     if (row.running) return;
     const i = rows.indexOf(row); if (i>=0) rows.splice(i,1);
@@ -208,7 +217,7 @@ document.getElementById('multiFile').addEventListener('change', (e)=>{
   for (const f of files){
     const row = makeRow();
     const r = new FileReader();
-    r.onload = (()=>{ const dataUrl = r.result; compressImage(dataUrl, 1600, (c)=>{ row.data=c; const p=row.el.querySelector('.preview'); p.src=c; p.style.display='block'; row.el.querySelector('.zone').classList.add('has'); setStatus(row, '待提交'); }); });
+    r.onload = (()=>{ compressImage(r.result, 1600, (c)=>{ row.images.push(c); const p=row.el.querySelector('.previews'); p.innerHTML+=`<span class="thumb"><img src="${c}"></span>`; row.el.querySelector('.zone').classList.add('has'); setStatus(row, '待提交'); }); });
     r.readAsDataURL(f);
   }
   e.target.value = '';
@@ -223,7 +232,7 @@ async function processRow(row, level){
     const resp = await fetch('/api/grade', {
       method:'POST',
       headers:{'Content-Type':'application/json','X-Access-Code':accessCode},
-      body: JSON.stringify({ name: (row.nameInput.value.trim()||'学生'), level, question_text:'', question_image:'', essay_image: row.data }),
+      body: JSON.stringify({ name: (row.nameInput.value.trim()||'学生'), level, question_text:'', question_images:[], essay_images: row.images }),
     });
     if (!resp.ok) { const e = await resp.json().catch(()=>({error:'HTTP '+resp.status})); throw new Error(e.error||('HTTP '+resp.status)); }
     const job = await resp.json();
@@ -256,7 +265,7 @@ async function processRow(row, level){
 document.getElementById('runAll').addEventListener('click', async ()=>{
   const level = levelSel.value;
   if (!level){ overall.textContent = '请先选择级别'; overall.className=''; return; }
-  const todo = rows.filter(r => r.data && !r.running);
+  const todo = rows.filter(r => r.images.length && !r.running);
   if (!todo.length){ overall.textContent = '还没有可批改的作文'; overall.className=''; return; }
   const noName = todo.filter(r => !r.nameInput.value.trim());
   if (noName.length){
