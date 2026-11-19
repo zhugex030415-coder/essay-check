@@ -5,57 +5,121 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#faf8f5">
 <title>赤舟作文批改 · 批量模式</title>
+<!--
+  设计约束：
+  层级：唯一主操作 = 全部批改；每行 = 姓名 + 截图 + 状态；说明卡只做引导，不做主角。
+  token：字号 11/12/13/14/16/18/20/24；间距 4/8/12/16/24/32；圆角 8/12/18；状态色 ok/err。
+  先灰度后上色：层级靠间距、字重、对比撑起来，红色只给主操作与品牌。
+-->
 <style>
 :root{
-  --red-600:#8b1a1a; --red-100:#f9e9e6; --paper:#faf8f5; --surface:#fff;
+  --red-50:#fdf6f4; --red-100:#f9e9e6; --red-200:#f0d2cd; --red-600:#8b1a1a; --red-700:#6d1313;
+  --paper:#faf8f5; --surface:#ffffff; --surface-2:#f5f1eb;
   --ink:#241f1a; --ink-2:#5c544b; --ink-3:#8b8177;
-  --line:rgba(36,31,26,.12); --ok:#1f7a4d; --err:#a22222; --r:12px;
+  --line:rgba(36,31,26,.10); --line-2:rgba(36,31,26,.16);
+  --ok:#1f7a4d; --err:#a22222;
+  --r-xl:18px; --r-md:12px; --r-sm:8px;
+  --sh-1:0 1px 2px rgba(36,31,26,.05);
+  --sh-2:0 1px 2px rgba(36,31,26,.05), 0 10px 30px -18px rgba(36,31,26,.28);
   --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --serif:"Noto Serif SC","Source Han Serif SC","Songti SC",Georgia,serif;
+  --mono:"Poppins","Segoe UI",system-ui;
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--ink)}
-header{background:var(--red-600);color:#fff;padding:16px 22px}
-header h1{margin:0;font-size:19px}
-header p{margin:4px 0 0;font-size:12px;opacity:.9}
-header a{color:#fff;font-size:12px;text-decoration:underline;opacity:.9}
-main{max-width:920px;margin:0 auto;padding:18px 16px 60px}
-.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
-.toolbar label{font-size:13px;color:var(--ink-2)}
-.toolbar select,.toolbar button{font-family:inherit;font-size:13px}
-select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff}
-button{cursor:pointer;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:#fff;font-weight:600}
-button.primary{background:var(--red-600);color:#fff;border-color:var(--red-600)}
-button:disabled{opacity:.5;cursor:not-allowed}
-#overall{font-size:13px;color:var(--ink-2);margin-left:auto}
-.row{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:10px}
-.row-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.idx{width:24px;height:24px;border-radius:50%;background:var(--red-100);color:var(--red-600);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-.name{flex:1;min-width:120px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit}
-.status{font-size:12px;color:var(--ink-3);min-width:90px;text-align:right}
-.dl{font-size:12px;color:var(--red-600);font-weight:600;text-decoration:underline}
-.remove{font-size:12px;color:var(--ink-3);background:none;border:none;padding:2px 6px}
-.zone{border:2px dashed #ccc;border-radius:8px;padding:10px;text-align:center;font-size:12px;color:var(--ink-3);cursor:pointer;background:#fafafa;outline:none;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
-.zone:focus{border-color:var(--red-600);color:var(--red-600);background:var(--red-100)}
-.zone.has{border-style:solid;border-color:#b98a8a}
-.zone img{max-width:100%;max-height:110px;border-radius:4px;display:none}
-.pick{color:var(--red-600);text-decoration:underline;cursor:pointer}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+a{color:var(--red-600)}
+header{background:var(--red-600);color:#fff;padding:20px 24px}
+header .in{max-width:960px;margin:0 auto}
+header h1{margin:0;font-family:var(--serif);font-size:24px;line-height:1.25;font-weight:700;letter-spacing:.01em}
+header p{margin:6px 0 0;font-size:13px;opacity:.82}
+header a{color:#fff;font-size:13px;text-decoration:none;opacity:.85;border-bottom:1px solid rgba(255,255,255,.35);padding-bottom:1px}
+header a:hover{opacity:1}
+main{max-width:960px;margin:0 auto;padding:24px 24px 72px}
+
+/* 使用说明卡：引导，不做主角 */
+.howto{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);padding:20px 22px;margin-bottom:16px;box-shadow:var(--sh-1)}
+.howto h2{margin:0 0 12px;font-size:14px;color:var(--ink);letter-spacing:.02em}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.step{display:flex;gap:10px}
+.num{flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:var(--red-100);color:var(--red-600);font-family:var(--mono);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.step b{display:block;font-size:14px;font-weight:600}
+.step span{display:block;font-size:12.5px;color:var(--ink-2);line-height:1.6}
+.tips{margin:16px 0 0;padding-top:14px;border-top:1px dashed var(--line-2);font-size:12.5px;color:var(--ink-2)}
+.tips b{color:var(--ink)}
+
+/* 工具栏 */
+.toolbar{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);padding:14px 16px;margin-bottom:20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;box-shadow:var(--sh-1)}
+.field{display:flex;align-items:center;gap:8px}
+.field label{font-size:13px;color:var(--ink-2)}
+select{font-family:inherit;font-size:14px;color:var(--ink);background:#fff;border:1px solid var(--line-2);border-radius:var(--r-sm);padding:9px 32px 9px 12px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235c544b' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;cursor:pointer;max-width:340px}
+select:focus-visible,button:focus-visible,input:focus-visible,.zone:focus-visible{outline:2px solid var(--red-600);outline-offset:2px}
+.btn{font-family:inherit;font-size:14px;font-weight:600;border-radius:var(--r-sm);padding:10px 16px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease}
+.btn:hover{box-shadow:var(--sh-1);transform:translateY(-1px)}
+.btn.primary{background:var(--red-600);color:#fff;border-color:var(--red-600);margin-left:auto}
+.btn.primary:hover{background:var(--red-700)}
+.btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+#overall{font-size:13px;color:var(--ink-2);min-width:150px;text-align:right}
+#overall.done{color:var(--ok)}
+
+/* 行 */
+.rows{display:flex;flex-direction:column;gap:12px}
+.row{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);padding:16px 18px;box-shadow:var(--sh-1)}
+.row-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.idx{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--surface-2);color:var(--ink-2);font-family:var(--mono);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.name{flex:1;min-width:120px;font-family:inherit;font-size:15px;padding:9px 12px;border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--ink);background:#fff}
+.name::placeholder{color:var(--ink-3)}
+.status{flex:0 0 auto;font-size:12.5px;color:var(--ink-3);min-width:96px;text-align:right;font-variant-numeric:tabular-nums}
+.status.ok{color:var(--ok)}
+.status.err{color:var(--err)}
+.dl{font-size:12.5px;font-weight:600;color:var(--red-600);text-decoration:underline;display:none}
+.remove{font-family:inherit;font-size:12.5px;color:var(--ink-3);background:none;border:none;padding:4px 6px;cursor:pointer;border-radius:6px}
+.remove:hover{color:var(--err);background:var(--red-50)}
+.zone{position:relative;border:1.5px dashed var(--line-2);border-radius:var(--r-md);padding:16px;min-height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;color:var(--ink-3);font-size:13px;cursor:pointer;background:var(--paper);transition:border-color .15s ease,background .15s ease}
+.zone:hover{border-color:var(--red-200);background:var(--red-50)}
+.zone:focus{border-color:var(--red-600);background:var(--red-50);color:var(--red-600)}
+.zone.has{border-style:solid;border-color:var(--line);background:#fff;padding:10px}
+.zone .pick{color:var(--red-600);font-weight:600;text-decoration:underline}
+.zone img{max-width:100%;max-height:120px;border-radius:6px;display:none}
+.zone.has .hint,.zone.has img+.hint{display:none}
+
+@media (max-width:720px){
+  .steps{grid-template-columns:1fr}
+  .btn.primary{margin-left:0;width:100%}
+  #overall{width:100%;text-align:left}
+}
 </style>
 </head>
 <body>
 <header>
-  <h1>赤舟作文批改 · 批量模式</h1>
-  <p>一次加多篇，填好姓名，排队自动出每份 PDF</p>
-  <p><a href="/" id="backLink">← 返回单篇模式</a></p>
+  <div class="in">
+    <h1>赤舟作文批改 · 批量模式</h1>
+    <p>一次放好几篇，填好姓名，排队自动出每份 PDF</p>
+    <p style="margin-top:8px"><a href="/" id="backLink">← 返回单篇模式</a></p>
+  </div>
 </header>
 <main>
+  <section class="howto">
+    <h2>怎么用（3 步）</h2>
+    <div class="steps">
+      <div class="step"><span class="num">1</span><div><b>添加作文</b><span>点「＋ 添加一篇」逐个加，或「＋ 批量选图」一次选多张</span></div></div>
+      <div class="step"><span class="num">2</span><div><b>填姓名、贴截图</b><span>每行填学生姓名（可留空），点框内粘贴作文截图，或点「选择文件」</span></div></div>
+      <div class="step"><span class="num">3</span><div><b>全部批改</b><span>选好级别，点「全部批改」，每份好了会自动下载 PDF</span></div></div>
+    </div>
+    <p class="tips"><b>提醒：</b>截图尽量清晰；每篇约 1–2 分钟；免费版同时跑 2 篇，按顺序出结果，请耐心等、别关页面。</p>
+  </section>
+
   <div class="toolbar">
-    <label>级别 <select id="level"></select></label>
-    <button id="addRow">＋ 添加一篇</button>
-    <button id="pickMulti">＋ 批量选图</button>
-    <button class="primary" id="runAll">全部批改</button>
+    <div class="field">
+      <label for="level">级别</label>
+      <select id="level"></select>
+    </div>
+    <button class="btn" id="addRow">＋ 添加一篇</button>
+    <button class="btn" id="pickMulti">＋ 批量选图</button>
+    <button class="btn primary" id="runAll">全部批改</button>
     <span id="overall"></span>
   </div>
-  <div id="rows"></div>
+
+  <div class="rows" id="rows"></div>
   <input type="file" id="multiFile" accept="image/*" multiple hidden>
 </main>
 <script>
@@ -87,30 +151,34 @@ function compressImage(dataUrl, maxW, cb){
   };
   img.src = dataUrl;
 }
+function setStatus(row, text, cls){ row.statusEl.textContent = text; row.statusEl.className = 'status' + (cls ? ' ' + cls : ''); }
 
 function makeRow(){
   const el = document.createElement('div'); el.className='row';
-  const idx = ++seq;
   el.innerHTML = `
     <div class="row-head">
-      <span class="idx">${rows.length+1}</span>
+      <span class="idx"></span>
       <input class="name" placeholder="学生姓名（可留空）">
       <span class="status">未添加</span>
-      <a class="dl" style="display:none" target="_blank">下载 PDF</a>
-      <button class="remove" title="删除">✕</button>
+      <a class="dl" target="_blank">下载 PDF</a>
+      <button class="remove" title="删除这一行">删除</button>
     </div>
-    <div class="zone"><span>点这里粘贴截图，或 <b class="pick">选择文件</b></span><img class="preview" alt="预览"></div>
+    <div class="zone" tabindex="0">
+      <span class="hint">点这里粘贴截图，或 <b class="pick">选择文件</b></span>
+      <img class="preview" alt="作文截图预览">
+    </div>
     <input type="file" accept="image/*" hidden>
   `;
   const zone = el.querySelector('.zone'), preview = el.querySelector('.preview'), fileInput = el.querySelector('input[type=file]');
-  const pick = el.querySelector('.pick'), statusEl = el.querySelector('.status'), dl = el.querySelector('.dl'), nameInput = el.querySelector('.name'), idxEl = el.querySelector('.idx');
-  const row = { el, data:'', statusEl, dl, nameInput, idxEl };
+  const pick = el.querySelector('.pick'), dl = el.querySelector('.dl'), nameInput = el.querySelector('.name'), statusEl = el.querySelector('.status');
+  const row = { el, data:'', statusEl, dl, nameInput, running:false };
   function setImage(dataUrl){
     compressImage(dataUrl, 1600, (compressed) => {
       row.data = compressed; preview.src = compressed; preview.style.display='block'; zone.classList.add('has');
-      statusEl.textContent = '待提交';
+      setStatus(row, '待提交');
     });
   }
+  function setImageByFile(file){ const r=new FileReader(); r.onload=()=>setImage(r.result); r.readAsDataURL(file); }
   zone.addEventListener('click', (e)=>{ if (e.target!==pick) zone.focus(); });
   zone.addEventListener('paste', (e)=>{
     const items = (e.clipboardData && e.clipboardData.items) || [];
@@ -120,7 +188,6 @@ function makeRow(){
   zone.addEventListener('drop', (e)=>{ e.preventDefault(); const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) setImageByFile(f); });
   pick.addEventListener('click', (e)=>{ e.stopPropagation(); fileInput.click(); });
   fileInput.addEventListener('change', ()=>{ if (fileInput.files&&fileInput.files[0]) setImageByFile(fileInput.files[0]); });
-  function setImageByFile(file){ const r=new FileReader(); r.onload=()=>setImage(r.result); r.readAsDataURL(file); }
   el.querySelector('.remove').addEventListener('click', ()=>{
     if (row.running) return;
     const i = rows.indexOf(row); if (i>=0) rows.splice(i,1);
@@ -128,9 +195,10 @@ function makeRow(){
   });
   rows.push(row);
   rowsEl.appendChild(el);
+  renumber();
   return row;
 }
-function renumber(){ rows.forEach((r,i)=> r.idxEl.textContent = i+1); }
+function renumber(){ rows.forEach((r,i)=> { const n = r.el.querySelector('.idx'); if (n) n.textContent = i+1; }); }
 
 document.getElementById('addRow').addEventListener('click', ()=> makeRow());
 document.getElementById('multiFile').addEventListener('change', (e)=>{
@@ -138,7 +206,7 @@ document.getElementById('multiFile').addEventListener('change', (e)=>{
   for (const f of files){
     const row = makeRow();
     const r = new FileReader();
-    r.onload = (()=>{ const dataUrl = r.result; compressImage(dataUrl, 1600, (c)=>{ row.data=c; const p=row.el.querySelector('.preview'); p.src=c; p.style.display='block'; row.el.querySelector('.zone').classList.add('has'); row.statusEl.textContent='待提交'; }); });
+    r.onload = (()=>{ const dataUrl = r.result; compressImage(dataUrl, 1600, (c)=>{ row.data=c; const p=row.el.querySelector('.preview'); p.src=c; p.style.display='block'; row.el.querySelector('.zone').classList.add('has'); setStatus(row, '待提交'); }); });
     r.readAsDataURL(f);
   }
   e.target.value = '';
@@ -147,7 +215,7 @@ document.getElementById('pickMulti').addEventListener('click', ()=> document.get
 
 async function processRow(row, level){
   row.running = true;
-  row.statusEl.textContent = '提交中…';
+  setStatus(row, '提交中…', '');
   row.dl.style.display = 'none';
   try {
     const resp = await fetch('/api/grade', {
@@ -169,15 +237,15 @@ async function processRow(row, level){
         const fname = `作文批改-${(row.nameInput.value.trim()||'学生')}-${level}-${today()}.pdf`;
         const a = document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
         row.dl.href = url; row.dl.download = fname; row.dl.style.display='inline';
-        row.statusEl.textContent = `完成 ${Math.round((Date.now()-started)/1000)}s`;
+        setStatus(row, `完成 ${Math.round((Date.now()-started)/1000)}s`, 'ok');
         break;
       }
       const jr = await pr.json().catch(()=>({}));
       if (jr.status === 'error') throw new Error(jr.error || '批改失败');
-      row.statusEl.textContent = `处理中 ${Math.round((Date.now()-started)/1000)}s`;
+      setStatus(row, `处理中 ${Math.round((Date.now()-started)/1000)}s`, '');
     }
   } catch (e) {
-    row.statusEl.textContent = '失败：' + e.message;
+    setStatus(row, '失败：' + e.message, 'err');
   } finally {
     row.running = false;
   }
@@ -185,9 +253,10 @@ async function processRow(row, level){
 
 document.getElementById('runAll').addEventListener('click', async ()=>{
   const todo = rows.filter(r => r.data && !r.running);
-  if (!todo.length){ overall.textContent = '还没有添加作文（先加一篇并贴上截图）'; return; }
+  if (!todo.length){ overall.textContent = '还没有可批改的作文'; overall.className=''; return; }
   const level = levelSel.value;
-  document.getElementById('runAll').disabled = true;
+  const runBtn = document.getElementById('runAll');
+  runBtn.disabled = true;
   let next = 0, done = 0;
   const CONCURRENCY = 2;
   async function worker(){
@@ -196,17 +265,17 @@ document.getElementById('runAll').addEventListener('click', async ()=>{
       if (i >= todo.length) return;
       await processRow(todo[i], level);
       done++;
-      overall.textContent = `完成 ${done}/${todo.length}`;
+      overall.textContent = `完成 ${done} / ${todo.length}`;
     }
   }
   const ws = [];
   for (let i=0;i<Math.min(CONCURRENCY, todo.length);i++) ws.push(worker());
   await Promise.all(ws);
-  overall.textContent = `全部完成 ${done}/${todo.length}`;
-  document.getElementById('runAll').disabled = false;
+  overall.textContent = `全部完成 ${done} / ${todo.length}`;
+  overall.className = 'done';
+  runBtn.disabled = false;
 });
 
-// 初始给两行
 makeRow(); makeRow();
 </script>
 </body>
