@@ -1,0 +1,4 @@
+# 云端部署依赖（Render 会自动 pip install）
+# 系统级依赖（pango / cairo / 中文字体）在 render.yaml 的 buildCommand 里 apt-get 装。
+weasyprint
+pillow
