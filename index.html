@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#faf8f5">
+<title>赤舟作文批改工作台</title>
+<!--
+  设计约束（先定，再写样式）
+  ─ 层级：唯一主操作 = 生成 PDF；最重要输入 = 作文截图；其余为辅助。
+  ─ 取值：只用下面这套 token，不出现手调的一次性数字。
+  ─ 顺序：层级 → 间距 → 排版 → 色彩 → 深度 → 收尾。
+-->
+<style>
+:root{
+  /* 品牌红：50 → 700，全部从 #8B1A1A 推出来 */
+  --red-50:#fdf6f4; --red-100:#f9e9e6; --red-200:#f0d2cd;
+  --red-400:#bd5a53; --red-500:#a3403a; --red-600:#8b1a1a; --red-700:#6d1313;
+  /* 暖纸中性色：不是纯灰，跟着红的色相走 */
+  --paper:#faf8f5; --surface:#ffffff; --surface-2:#f5f1eb; --surface-3:#efe9e1;
+  --ink:#241f1a; --ink-2:#5c544b; --ink-3:#8b8177;
+  --line:rgba(36,31,26,.09); --line-2:rgba(36,31,26,.16);
+  --ok:#1f7a4d; --err:#a22222;
+  /* 半径：父子同圆心，子 = 父 − 6 */
+  --r-xl:18px; --r-md:12px; --r-sm:8px;
+  /* 深度：环境光 + 直射光两层，不用单层大黑影 */
+  --sh-1:0 1px 2px rgba(36,31,26,.05);
+  --sh-2:0 1px 2px rgba(36,31,26,.05), 0 10px 30px -18px rgba(36,31,26,.28);
+  --sh-3:0 2px 4px rgba(36,31,26,.07), 0 22px 44px -24px rgba(36,31,26,.34);
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --serif:"Noto Serif SC","Source Han Serif SC","Songti SC",Georgia,serif;
+  --latin:"Poppins","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.75;
+  background:
+    radial-gradient(1100px 420px at 50% -160px, #fff 0%, rgba(255,255,255,0) 70%),
+    var(--paper);
+  background-attachment:fixed;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+::selection{background:var(--red-100); color:var(--ink)}
+:focus-visible{outline:2px solid var(--red-500); outline-offset:2px; border-radius:4px}
+button, [role="button"], .link{touch-action:manipulation; -webkit-tap-highlight-color:transparent}
+
+/* ── 顶栏：白底细线，不用整块红条 ───────────────────── */
+.topline{height:3px; background:linear-gradient(90deg,var(--red-600),var(--red-400) 55%,var(--red-600))}
+.topbar{
+  position:sticky; top:0; z-index:20;
+  background:rgba(250,248,245,.86);
+  -webkit-backdrop-filter:saturate(180%) blur(12px);
+  backdrop-filter:saturate(180%) blur(12px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-in{
+  max-width:840px; margin:0 auto; padding:13px clamp(16px,4vw,28px);
+  display:flex; align-items:center; gap:14px;
+}
+.brand{display:flex; align-items:center; gap:11px; text-decoration:none; color:inherit}
+.seal{
+  width:34px; height:34px; flex:none; display:grid; place-items:center;
+  border-radius:10px; background:var(--red-600); color:#fff;
+  font-family:var(--serif); font-size:19px; font-weight:700; line-height:1;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 2px 6px -2px rgba(109,19,19,.55);
+}
+.brand-txt{display:flex; flex-direction:column; line-height:1.25}
+.brand-txt b{font-family:var(--serif); font-size:15.5px; font-weight:700; letter-spacing:.04em}
+.brand-txt i{font-style:normal; font-size:11.5px; color:var(--ink-3); letter-spacing:.06em}
+.topmeta{
+  margin:0 0 0 auto; display:inline-flex; align-items:center; gap:7px;
+  font-size:12px; color:var(--ink-3); letter-spacing:.02em;
+}
+.topmeta .dot{width:6px; height:6px; border-radius:50%; background:var(--ok); box-shadow:0 0 0 3px rgba(31,122,77,.12)}
+
+/* ── 页面 ─────────────────────────────────────────────── */
+main{max-width:840px; margin:0 auto; padding:clamp(32px,6vw,60px) clamp(16px,4vw,28px) 96px}
+
+.masthead{margin-bottom:clamp(28px,5vw,44px)}
+.eyebrow{
+  margin:0 0 14px; font-family:var(--latin); font-size:11px; font-weight:600;
+  letter-spacing:.22em; text-transform:uppercase; color:var(--red-500);
+}
+h1{
+  margin:0; font-family:var(--serif); font-weight:700;
+  font-size:clamp(25px,3.6vw,35px); line-height:1.34; letter-spacing:.005em;
+  text-wrap:balance;
+}
+h1 em{font-style:normal; color:var(--red-600)}
+.lede{
+  display:flex; flex-wrap:wrap; align-items:baseline; margin:14px 0 0;
+  font-size:15px; line-height:1.8; color:var(--ink-2);
+}
+.lede .seg{white-space:nowrap}
+.lede .arr{font-style:normal; color:var(--ink-3); margin:0 8px; user-select:none}
+
+.dims{display:flex; flex-wrap:wrap; gap:8px; margin:22px 0 0; padding:0; list-style:none}
+.dims li{
+  font-size:12.5px; color:var(--ink-2); padding:5px 11px;
+  border:1px solid var(--line-2); border-radius:999px; background:var(--surface);
+  font-variant-numeric:tabular-nums;
+}
+
+/* ── 步骤面板 ─────────────────────────────────────────── */
+.step{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r-xl);
+  padding:clamp(20px,3.4vw,26px); margin-bottom:16px; box-shadow:var(--sh-2);
+}
+.step-head{display:flex; align-items:center; gap:12px; margin-bottom:6px}
+.num{
+  width:28px; height:28px; flex:none; display:grid; place-items:center;
+  border-radius:9px; background:var(--red-50); border:1px solid var(--red-200);
+  color:var(--red-600); font-family:var(--latin); font-size:11.5px; font-weight:600;
+  letter-spacing:.04em; font-variant-numeric:tabular-nums;
+}
+.step-head h2{margin:0; font-size:16.5px; font-weight:600; letter-spacing:.01em; line-height:1.4}
+.chip{
+  margin-left:auto; flex:none; font-size:11.5px; letter-spacing:.04em;
+  padding:3px 9px; border-radius:999px; color:var(--ink-3);
+  background:var(--surface-2); border:1px solid var(--line);
+}
+.chip.req{color:var(--red-600); background:var(--red-50); border-color:var(--red-200)}
+.note{margin:0 0 18px; font-size:13px; line-height:1.7; color:var(--ink-3)}
+
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+.field{min-width:0}
+.field + .field{margin-top:16px}
+.grid2 .field + .field{margin-top:0}
+label{display:block; margin-bottom:6px; font-size:13px; font-weight:600; color:var(--ink-2); letter-spacing:.01em}
+
+input[type=text], select, textarea{
+  width:100%; font-family:inherit; font-size:15px; color:var(--ink);
+  background:var(--surface); border:1px solid var(--line-2); border-radius:var(--r-md);
+  padding:11px 13px; line-height:1.5; transition:border-color .15s, box-shadow .15s, background .15s;
+}
+input[type=text]{height:46px}
+textarea{min-height:88px; resize:vertical; line-height:1.75}
+input::placeholder, textarea::placeholder{color:var(--ink-3)}
+input[type=text]:hover, select:hover, textarea:hover{border-color:rgba(36,31,26,.26)}
+input[type=text]:focus, select:focus, textarea:focus{
+  outline:none; border-color:var(--red-400); box-shadow:0 0 0 3px rgba(163,64,58,.14);
+}
+select{
+  appearance:none; -webkit-appearance:none; height:46px; padding-right:38px; cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%235c544b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 14px center;
+}
+
+/* ── 投放区：实线细边 + 图标，不用虚线框 ─────────────── */
+.drop{
+  position:relative; border:1px solid var(--line-2); border-radius:var(--r-md);
+  background:linear-gradient(180deg,#fdfcfa,var(--surface-2));
+  padding:26px 20px; text-align:center; cursor:pointer;
+  transition:border-color .18s, background .18s, box-shadow .18s, transform .18s;
+}
+.drop:hover{border-color:rgba(36,31,26,.24); background:var(--surface)}
+.drop:focus-visible{outline:none; border-color:var(--red-400); box-shadow:0 0 0 3px rgba(163,64,58,.16)}
+.drop.drag{border-color:var(--red-400); background:var(--red-50); box-shadow:0 0 0 3px rgba(163,64,58,.12)}
+.drop.has-img{background:var(--surface); border-color:var(--line-2); padding-bottom:16px}
+.drop-ico{
+  width:40px; height:40px; margin:0 auto 10px; display:grid; place-items:center;
+  border-radius:12px; background:var(--surface); border:1px solid var(--line-2);
+  color:var(--red-600); box-shadow:var(--sh-1);
+}
+.drop b{font-size:14px; font-weight:600; color:var(--ink)}
+.drop .sub{display:block; margin-top:5px; font-size:12.5px; color:var(--ink-3); line-height:1.7; text-wrap:balance}
+.drop .sub b{font-size:inherit; font-weight:600; color:var(--ink-2)}
+.link{color:var(--red-600); text-decoration:none; border-bottom:1px solid var(--red-200); padding-bottom:1px; cursor:pointer}
+.link:hover{color:var(--red-500); border-bottom-color:var(--red-400)}
+kbd{
+  font-family:var(--latin); font-size:11px; font-weight:500; color:var(--ink-2);
+  background:var(--surface); border:1px solid var(--line-2); border-bottom-width:2px;
+  border-radius:5px; padding:1px 5px; margin:0 1px;
+}
+.drop img{
+  display:none; max-width:100%; max-height:280px; margin:14px auto 0;
+  border-radius:var(--r-sm); border:1px solid var(--line); box-shadow:var(--sh-1); object-fit:contain;
+}
+.drop.has-img img{display:block}
+.drop-sm{padding:20px 16px}
+.drop-sm .drop-ico{width:34px; height:34px; margin-bottom:8px; border-radius:10px}
+
+/* ── 主操作 ───────────────────────────────────────────── */
+.actionbar{display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:24px}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:9px;
+  min-height:48px; padding:0 28px; border:none; border-radius:var(--r-md);
+  font-family:inherit; font-size:15px; font-weight:600; letter-spacing:.02em; color:#fff;
+  background:linear-gradient(180deg,#9c2420,var(--red-600));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 1px 2px rgba(109,19,19,.35), 0 10px 22px -12px rgba(139,26,26,.7);
+  cursor:pointer; transition:filter .15s, transform .1s, box-shadow .15s;
+}
+.btn:hover{filter:brightness(1.07)}
+.btn:active{transform:translateY(1px); box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(109,19,19,.3)}
+.btn:disabled{opacity:.55; cursor:progress; filter:saturate(.85)}
+.btn .spinner{display:none; width:15px; height:15px; flex:none; border-radius:50%;
+  border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite}
+.btn.busy .spinner{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.status{margin:0; min-height:1.6em; font-size:13px; line-height:1.6; color:var(--ink-2); flex:1; min-width:200px}
+.status.err{color:var(--err)}
+.status.ok{color:var(--ok)}
+.progress{height:3px; margin-top:14px; border-radius:999px; background:var(--surface-3); overflow:hidden; display:none}
+.progress.on{display:block}
+.progress i{display:block; width:38%; height:100%; border-radius:999px; background:var(--red-500); animation:slide 1.5s cubic-bezier(.45,.05,.55,.95) infinite}
+@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+
+/* ── 结果 ─────────────────────────────────────────────── */
+.result{
+  display:none; align-items:center; gap:14px; margin-top:20px;
+  padding:16px 18px; border:1px solid var(--red-200); border-radius:var(--r-md);
+  background:linear-gradient(180deg,var(--red-50),#fff); box-shadow:var(--sh-2);
+}
+.result.on{display:flex}
+.res-ico{
+  width:42px; height:42px; flex:none; display:grid; place-items:center; border-radius:10px;
+  background:var(--red-600); color:#fff; font-family:var(--latin); font-size:10px;
+  font-weight:600; letter-spacing:.06em; box-shadow:inset 0 1px 0 rgba(255,255,255,.2);
+}
+.res-txt{flex:1; min-width:0; display:flex; flex-direction:column; line-height:1.5}
+.res-txt b{font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.res-txt span{font-size:12px; color:var(--ink-3)}
+.btn-ghost{
+  flex:none; display:inline-flex; align-items:center; min-height:40px; padding:0 18px;
+  border:1px solid var(--red-200); border-radius:var(--r-sm); background:var(--surface);
+  color:var(--red-600); font-size:13.5px; font-weight:600; text-decoration:none; cursor:pointer;
+  transition:background .15s, border-color .15s;
+}
+.btn-ghost:hover{background:var(--red-50); border-color:var(--red-400)}
+
+.fineprint{margin:26px 0 0; font-size:12px; line-height:1.8; color:var(--ink-3); letter-spacing:.01em}
+
+@media (max-width:720px){
+  .topmeta{display:none}
+  .dims{gap:6px}
+  .dims li{font-size:11.5px; padding:4px 9px}
+  .grid2{grid-template-columns:1fr}
+  .note{margin-bottom:16px}
+  input[type=text], select, textarea{font-size:16px}   /* 防 iOS 聚焦缩放 */
+  .actionbar{
+    position:sticky; bottom:0; z-index:15; margin:24px -16px 0; padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    flex-direction:column; align-items:stretch; gap:10px;
+    background:rgba(250,248,245,.94); border-top:1px solid var(--line);
+    -webkit-backdrop-filter:saturate(180%) blur(12px); backdrop-filter:saturate(180%) blur(12px);
+  }
+  .btn{width:100%}
+  .status{min-height:0; text-align:center}
+  .result{flex-wrap:wrap}
+  .btn-ghost{width:100%; justify-content:center}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<div class="topline"></div>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="#" aria-label="赤舟国际教育 · 作文批改工作台">
+      <span class="seal" aria-hidden="true">赤</span>
+      <span class="brand-txt"><b>赤舟国际教育</b><i>作文批改工作台</i></span>
+    </a>
+    <p class="topmeta"><span class="dot" aria-hidden="true"></span>本地运行 · 图片不出本机</p>
+  </div>
+</header>
+
+<main>
+  <section class="masthead">
+    <p class="eyebrow">Essay Grader</p>
+    <h1>手写作文拍一张，换回一份 <em>25 分制</em>批改报告。</h1>
+    <p class="lede">
+      <span class="seg">OCR 转写原文</span><span class="seg"><i class="arr" aria-hidden="true">→</i>五维打分</span><span class="seg"><i class="arr" aria-hidden="true">→</i>逐句批改</span><span class="seg"><i class="arr" aria-hidden="true">→</i>保留原意的升格范文</span><span class="seg"><i class="arr" aria-hidden="true">→</i>可直接打印的 PDF</span>
+    </p>
+    <ul class="dims" aria-label="评分维度">
+      <li>内容要点</li><li>语法准确</li><li>词汇运用</li><li>篇章结构</li><li>书写卷面</li>
+    </ul>
+  </section>
+
+  <section class="step">
+    <div class="step-head">
+      <span class="num" aria-hidden="true">01</span>
+      <h2>学生信息</h2>
+      <span class="chip req">必填</span>
+    </div>
+    <p class="note">级别决定批改难度，对标剑桥与中高考。</p>
+    <div class="grid2">
+      <div class="field">
+        <label for="name">学生姓名</label>
+        <input type="text" id="name" name="student" autocomplete="off" spellcheck="false" placeholder="如：王小明…">
+      </div>
+      <div class="field">
+        <label for="level">学生级别</label>
+        <select id="level" name="level"></select>
+      </div>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head">
+      <span class="num" aria-hidden="true">02</span>
+      <h2>学生作文截图</h2>
+      <span class="chip req">必填</span>
+    </div>
+    <p class="note">手写作文拍清楚，每一行字能认出来就够。</p>
+    <div class="drop" id="eZone" tabindex="0" role="button" aria-label="上传或粘贴学生作文截图">
+      <div class="drop-ico" aria-hidden="true">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+      </div>
+      <b>点这里，再按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴截图</b>
+      <span class="sub">也可以直接把图片拖进来，或 <span class="link" id="ePick">选择文件</span></span>
+      <img id="ePreview" alt="作文截图预览">
+    </div>
+    <input type="file" id="eFile" accept="image/*" hidden>
+  </section>
+
+  <section class="step">
+    <div class="step-head">
+      <span class="num" aria-hidden="true">03</span>
+      <h2>作文题目</h2>
+      <span class="chip">可选</span>
+    </div>
+    <p class="note">有题目就贴上，批改会更贴合题目要求；没有可以留空。</p>
+    <div class="field">
+      <label for="questionText">题目文字</label>
+      <textarea id="questionText" placeholder="例如：My Favourite Sport（至少 80 词）…"></textarea>
+    </div>
+    <div class="field">
+      <div class="drop drop-sm" id="qZone" tabindex="0" role="button" aria-label="上传或粘贴题目截图">
+        <div class="drop-ico" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5 21 9l-9.5 9.5H6V13z"/><path d="M3 21h18" opacity=".45"/></svg>
+        </div>
+        <span class="sub">题目是截图？<span class="link" id="qPick">选择文件</span>，或按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴</span>
+        <img id="qPreview" alt="题目截图预览">
+      </div>
+      <input type="file" id="qFile" accept="image/*" hidden>
+    </div>
+  </section>
+
+  <div class="actionbar">
+    <button class="btn" id="btn">
+      <span class="spinner" aria-hidden="true"></span>
+      <span class="btn-label">批改并生成 PDF</span>
+    </button>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </div>
+  <div class="progress" id="progress" aria-hidden="true"><i></i></div>
+
+  <div class="result" id="downloadWrap" role="region" aria-label="生成结果">
+    <div class="res-ico" aria-hidden="true">PDF</div>
+    <div class="res-txt"><b id="resName">作文批改.pdf</b><span>报告已生成，可直接打印或发家长</span></div>
+    <a class="btn-ghost" id="downloadLink">再下载一次</a>
+  </div>
+
+  <p class="fineprint">一次批改约 1–2 分钟（OCR + 批改 + 排版）；PDF 用红黑灰讲义版式，A4 可直接打印。</p>
+</main>
+
+<script>
+const LEVELS = [
+  ["初L2", "Movers · 小学 A1"],
+  ["初L3", "Flyers · 初一 A2"],
+  ["中L1", "AEIM L1 · KET · 初二–中考"],
+  ["中L2", "AEIM L2 · KET优/PET过 · 中考–高一"],
+  ["中L3", "AEIM L3 · PET优 · 高二"],
+  ["高L1", "FCE过 · 高考 B2"],
+  ["高L2", "FCE优 · 六级 B2–C1"],
+];
+const sel = document.getElementById('level');
+LEVELS.forEach(([code, target]) => {
+  const o = document.createElement('option');
+  o.value = code;
+  o.textContent = `${code}（${target}）`;
+  sel.appendChild(o);
+});
+
+let essayData = '', questionData = '';
+
+function getClipboardImage(e) {
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  for (const it of items) {
+    if (it.type && it.type.startsWith('image/')) return it.getAsFile();
+  }
+  return null;
+}
+
+function compressImage(dataUrl, maxW, cb) {
+  const img = new Image();
+  img.onload = () => {
+    let w = img.naturalWidth, h = img.naturalHeight;
+    if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    cb(c.toDataURL('image/jpeg', 0.85));
+  };
+  img.src = dataUrl;
+}
+
+function bindZone(zone, pick, fileInput, preview, onImage) {
+  function show(dataUrl) {
+    compressImage(dataUrl, 1600, (compressed) => {
+      onImage(compressed);
+      preview.src = compressed;
+      zone.classList.add('has-img');
+    });
+  }
+  zone.addEventListener('click', (e) => {
+    if (e.target === pick) return;          // 选文件由 pick 自己处理
+    zone.focus();
+    zone.classList.remove('drag');
+  });
+  zone.addEventListener('paste', (e) => {
+    const f = getClipboardImage(e);
+    if (f) { e.preventDefault(); readFile(f); }
+  });
+  zone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('drag');
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) readFile(f);
+  });
+  pick.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) readFile(fileInput.files[0]);
+  });
+  function readFile(file) {
+    const r = new FileReader();
+    r.onload = () => show(r.result);
+    r.readAsDataURL(file);
+  }
+}
+
+bindZone(
+  document.getElementById('eZone'), document.getElementById('ePick'),
+  document.getElementById('eFile'), document.getElementById('ePreview'),
+  (d) => { essayData = d; }
+);
+bindZone(
+  document.getElementById('qZone'), document.getElementById('qPick'),
+  document.getElementById('qFile'), document.getElementById('qPreview'),
+  (d) => { questionData = d; }
+);
+
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const btn = document.getElementById('btn');
+const btnLabel = btn.querySelector('.btn-label');
+const statusEl = document.getElementById('status');
+const progress = document.getElementById('progress');
+const downloadWrap = document.getElementById('downloadWrap');
+const downloadLink = document.getElementById('downloadLink');
+const resName = document.getElementById('resName');
+
+function setStatus(msg, cls) {
+  statusEl.textContent = msg;
+  statusEl.className = 'status' + (cls ? ' ' + cls : '');
+}
+function setBusy(on) {
+  btn.disabled = on;
+  btn.setAttribute('aria-busy', on ? 'true' : 'false');
+  btn.classList.toggle('busy', on);
+  btnLabel.textContent = on ? '批改中…' : '批改并生成 PDF';
+  progress.classList.toggle('on', on);
+}
+
+let accessCode = new URLSearchParams(location.search).get('code') || '';
+
+btn.addEventListener('click', async () => {
+  if (btn.disabled) return;
+  if (!essayData) { setStatus('还没放作文截图 —— 回到第 02 步粘贴或上传。', 'err'); document.getElementById('eZone').focus(); return; }
+  const name = document.getElementById('name').value.trim() || '学生';
+  const level = sel.value;
+  const payload = {
+    name,
+    level,
+    question_text: document.getElementById('questionText').value.trim(),
+    question_image: questionData,
+    essay_image: essayData,
+  };
+  downloadWrap.classList.remove('on');
+  setBusy(true);
+  setStatus('OCR 转写 → 批改 → 排版，约 1–2 分钟，先别关页面。');
+  try {
+    const doFetch = () => fetch('/api/grade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Access-Code': accessCode },
+      body: JSON.stringify(payload),
+    });
+    let resp = await doFetch();
+    if (resp.status === 401) {
+      const code = (prompt('这个页面需要访问码，请输入：') || '').trim();
+      if (code) { accessCode = code; resp = await doFetch(); }
+    }
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: 'HTTP ' + resp.status }));
+      throw new Error(err.error || ('HTTP ' + resp.status));
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const fname = `作文批改-${name}-${level}-${today()}.pdf`;
+    const a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    downloadLink.href = url; downloadLink.download = fname;
+    resName.textContent = fname;
+    downloadWrap.classList.add('on');
+    setStatus('完成了，PDF 已开始下载。', 'ok');
+  } catch (e) {
+    setStatus('失败：' + e.message, 'err');
+  } finally {
+    setBusy(false);
+  }
+});
+</script>
+</body>
+</html>
