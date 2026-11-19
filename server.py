@@ -562,6 +562,8 @@ def handle_grade(req):
     if not q_b64s:
         single_q = (req.get("question_image") or "").strip()
         q_b64s = [single_q] if single_q else []
+    if not question_text and not q_b64s:
+        raise ValueError("请填写作文题目（文字或截图），否则无法判断内容是否偏题")
     question_imgs = []
     q_texts = []
     for b in q_b64s:
@@ -802,6 +804,8 @@ def handle_grade_cam(req):
     if not q_b64s:
         single_q = (req.get("question_image") or "").strip()
         q_b64s = [single_q] if single_q else []
+    if not question_text and not q_b64s:
+        raise ValueError("请填写作文题目（文字或截图），否则无法判断内容是否偏题")
     question_imgs = []
     q_texts = []
     for b in q_b64s:
@@ -975,6 +979,9 @@ class Handler(BaseHTTPRequestHandler):
             if (req.get("level") or "").strip() not in RUBRIC["levels"]:
                 self._send(400, {"error": "请选择有效的学生级别"})
                 return
+            if not (req.get("question_text") or "").strip() and not [b for b in (req.get("question_images") or []) if isinstance(b, str) and b.strip()]:
+                self._send(400, {"error": "请填写作文题目（文字或截图），否则无法判断内容是否偏题"})
+                return
             job_id = uuid.uuid4().hex[:12]
             with JOBS_LOCK:
                 _prune_jobs()
@@ -1006,6 +1013,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not any(p["code"] == part_code for p in exam["parts"]):
                 self._send(400, {"error": "请选择写作题型"})
+                return
+            if not (req.get("question_text") or "").strip() and not [b for b in (req.get("question_images") or []) if isinstance(b, str) and b.strip()]:
+                self._send(400, {"error": "请填写作文题目（文字或截图），否则无法判断内容是否偏题"})
                 return
             job_id = uuid.uuid4().hex[:12]
             with JOBS_LOCK:
