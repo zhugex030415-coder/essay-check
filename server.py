@@ -679,6 +679,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, self._diag(req, step))
             return
         if path == "/api/grade":
+            # 同步校验：姓名、级别必填
+            if not (req.get("name") or "").strip():
+                self._send(400, {"error": "请填写学生姓名"})
+                return
+            if (req.get("level") or "").strip() not in RUBRIC["levels"]:
+                self._send(400, {"error": "请选择有效的学生级别"})
+                return
             job_id = uuid.uuid4().hex[:12]
             with JOBS_LOCK:
                 _prune_jobs()
