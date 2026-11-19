@@ -165,6 +165,7 @@ select{
   color:var(--red-600); box-shadow:var(--sh-1);
 }
 .drop b{font-size:14px; font-weight:600; color:var(--ink)}
+.drop b.big{font-size:15.5px; letter-spacing:.01em}
 .drop .sub{display:block; margin-top:5px; font-size:12.5px; color:var(--ink-3); line-height:1.7; text-wrap:balance}
 .drop .sub b{font-size:inherit; font-weight:600; color:var(--ink-2)}
 .link{color:var(--red-600); text-decoration:none; border-bottom:1px solid var(--red-200); padding-bottom:1px; cursor:pointer}
@@ -174,11 +175,11 @@ kbd{
   background:var(--surface); border:1px solid var(--line-2); border-bottom-width:2px;
   border-radius:5px; padding:1px 5px; margin:0 1px;
 }
-.drop img{
-  display:none; max-width:100%; max-height:280px; margin:14px auto 0;
-  border-radius:var(--r-sm); border:1px solid var(--line); box-shadow:var(--sh-1); object-fit:contain;
-}
-.drop.has-img img{display:block}
+.previews{display:none; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:14px; max-width:100%}
+.drop.has-img .previews{display:flex}
+.previews .thumb{position:relative; display:inline-block}
+.previews .thumb img{display:block; max-width:140px; max-height:110px; border-radius:var(--r-sm); border:1px solid var(--line); box-shadow:var(--sh-1); object-fit:cover}
+.previews .thumb-x{position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; border:none; background:var(--red-600); color:#fff; font-size:12px; line-height:20px; cursor:pointer; padding:0}
 .drop-sm{padding:20px 16px}
 .drop-sm .drop-ico{width:34px; height:34px; margin-bottom:8px; border-radius:10px}
 
@@ -307,14 +308,14 @@ kbd{
       <h2>学生作文截图</h2>
       <span class="chip req">必填</span>
     </div>
-    <p class="note">手写作文拍清楚，每一行字能认出来就够。</p>
+    <p class="note">学生手写的那一篇；一页写不完可以分多张拍 / 贴。</p>
     <div class="drop" id="eZone" tabindex="0" role="button" aria-label="上传或粘贴学生作文截图">
       <div class="drop-ico" aria-hidden="true">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
       </div>
-      <b>点这里，再按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴截图</b>
-      <span class="sub">也可以直接把图片拖进来，或 <span class="link" id="ePick">选择文件</span></span>
-      <img id="ePreview" alt="作文截图预览">
+      <b class="big">【学生作文】点这里，按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴</b>
+      <span class="sub">学生实际写的那篇，别贴成题目 · 也可拖入或 <span class="link" id="ePick">选择文件</span></span>
+      <div class="previews" id="ePreview"></div>
     </div>
     <input type="file" id="eFile" accept="image/*" hidden>
   </section>
@@ -325,7 +326,7 @@ kbd{
       <h2>作文题目</h2>
       <span class="chip">可选</span>
     </div>
-    <p class="note">有题目就贴上，批改会更贴合题目要求；没有可以留空。</p>
+    <p class="note">老师给的题目：截图就直接贴截图（会进报告），文字就打文字；没有可留空。</p>
     <div class="field">
       <label for="questionText">题目文字</label>
       <textarea id="questionText" placeholder="例如：My Favourite Sport（至少 80 词）…"></textarea>
@@ -335,8 +336,9 @@ kbd{
         <div class="drop-ico" aria-hidden="true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5 21 9l-9.5 9.5H6V13z"/><path d="M3 21h18" opacity=".45"/></svg>
         </div>
-        <span class="sub">题目是截图？<span class="link" id="qPick">选择文件</span>，或按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴</span>
-        <img id="qPreview" alt="题目截图预览">
+        <b class="big">【题目 / 写作要求】截图贴这里</b>
+        <span class="sub">老师布置的题目，别贴成学生作文 · 可 <span class="link" id="qPick">选择文件</span> 或按 <kbd>Ctrl</kbd>+<kbd>V</kbd></span>
+        <div class="previews" id="qPreview"></div>
       </div>
       <input type="file" id="qFile" accept="image/*" hidden>
     </div>
@@ -371,6 +373,9 @@ const LEVELS = [
   ["高L2", "FCE优 · 六级 B2–C1"],
 ];
 const sel = document.getElementById('level');
+const ph = document.createElement('option');
+ph.value = ''; ph.textContent = '请选择级别'; ph.disabled = true; ph.selected = true;
+sel.appendChild(ph);
 LEVELS.forEach(([code, target]) => {
   const o = document.createElement('option');
   o.value = code;
@@ -378,7 +383,7 @@ LEVELS.forEach(([code, target]) => {
   sel.appendChild(o);
 });
 
-let essayData = '', questionData = '';
+let essayImages = [], questionImages = [];
 
 function getClipboardImage(e) {
   const items = (e.clipboardData && e.clipboardData.items) || [];
@@ -401,22 +406,39 @@ function compressImage(dataUrl, maxW, cb) {
   img.src = dataUrl;
 }
 
-function bindZone(zone, pick, fileInput, preview, onImage) {
-  function show(dataUrl) {
-    compressImage(dataUrl, 1600, (compressed) => {
-      onImage(compressed);
-      preview.src = compressed;
-      zone.classList.add('has-img');
-    });
+function bindZone(zone, pick, fileInput, preview, onChange) {
+  let imgs = [];
+  function render() {
+    preview.innerHTML = imgs.map((src, i) =>
+      `<span class="thumb"><img src="${src}" alt="预览"><button class="thumb-x" data-i="${i}" title="移除这张">×</button></span>`
+    ).join('');
+    zone.classList.toggle('has-img', imgs.length > 0);
+    onChange(imgs.slice());
+  }
+  function addFiles(files) {
+    for (const f of files) {
+      if (!f.type || !f.type.startsWith('image/')) continue;
+      const r = new FileReader();
+      r.onload = () => compressImage(r.result, 1600, (c) => { imgs.push(c); render(); });
+      r.readAsDataURL(f);
+    }
   }
   zone.addEventListener('click', (e) => {
-    if (e.target === pick) return;          // 选文件由 pick 自己处理
+    if (e.target === pick) return;
+    if (e.target.classList && e.target.classList.contains('thumb-x')) {
+      e.stopPropagation();
+      imgs.splice(+e.target.dataset.i, 1);
+      render();
+      return;
+    }
     zone.focus();
     zone.classList.remove('drag');
   });
   zone.addEventListener('paste', (e) => {
-    const f = getClipboardImage(e);
-    if (f) { e.preventDefault(); readFile(f); }
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    const files = [];
+    for (const it of items) if (it.type && it.type.startsWith('image/')) files.push(it.getAsFile());
+    if (files.length) { e.preventDefault(); addFiles(files); }
   });
   zone.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
@@ -426,29 +448,25 @@ function bindZone(zone, pick, fileInput, preview, onImage) {
   zone.addEventListener('drop', (e) => {
     e.preventDefault();
     zone.classList.remove('drag');
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f) readFile(f);
+    addFiles(Array.from(e.dataTransfer.files || []));
   });
   pick.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+  fileInput.multiple = true;
   fileInput.addEventListener('change', () => {
-    if (fileInput.files && fileInput.files[0]) readFile(fileInput.files[0]);
+    addFiles(Array.from(fileInput.files || []));
+    fileInput.value = '';
   });
-  function readFile(file) {
-    const r = new FileReader();
-    r.onload = () => show(r.result);
-    r.readAsDataURL(file);
-  }
 }
 
 bindZone(
   document.getElementById('eZone'), document.getElementById('ePick'),
   document.getElementById('eFile'), document.getElementById('ePreview'),
-  (d) => { essayData = d; }
+  (arr) => { essayImages = arr; }
 );
 bindZone(
   document.getElementById('qZone'), document.getElementById('qPick'),
   document.getElementById('qFile'), document.getElementById('qPreview'),
-  (d) => { questionData = d; }
+  (arr) => { questionImages = arr; }
 );
 
 function today() {
@@ -481,15 +499,17 @@ document.getElementById('batchLink').href = '/batch.html' + (location.search || 
 
 btn.addEventListener('click', async () => {
   if (btn.disabled) return;
-  if (!essayData) { setStatus('还没放作文截图 —— 回到第 02 步粘贴或上传。', 'err'); document.getElementById('eZone').focus(); return; }
-  const name = document.getElementById('name').value.trim() || '学生';
+  const name = document.getElementById('name').value.trim();
+  if (!name) { setStatus('请先填写学生姓名。', 'err'); document.getElementById('name').focus(); return; }
   const level = sel.value;
+  if (!level) { setStatus('请先选择学生级别。', 'err'); sel.focus(); return; }
+  if (!essayImages.length) { setStatus('还没放作文截图 —— 回到第 02 步粘贴或上传。', 'err'); document.getElementById('eZone').focus(); return; }
   const payload = {
     name,
     level,
     question_text: document.getElementById('questionText').value.trim(),
-    question_image: questionData,
-    essay_image: essayData,
+    question_images: questionImages,
+    essay_images: essayImages,
   };
   downloadWrap.classList.remove('on');
   setBusy(true);
