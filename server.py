@@ -307,7 +307,7 @@ def transcribe(data: bytes):
     return ocr_vision(data)
 
 
-def grade(essay_text, question_text, level, mock=False):
+def grade(essay_text, question_text, level, name="", mock=False):
     if mock:
         return MOCK_GRADE
     lv = RUBRIC["levels"][level]
@@ -319,6 +319,7 @@ def grade(essay_text, question_text, level, mock=False):
     dim_text = "\n".join(dim_lines)
 
     prompt = f"""学生级别：{level}（{lv['target']}）
+学生姓名：{name or '（未填写）'}（以此为准；不要从作文正文、落款或邮件署名里提取或替换姓名）
 建议字数：{lv['words'][0]}–{lv['words'][1]} 词
 该级语法范围：{lv['grammar']}
 该级内容要求：{lv['content']}
@@ -380,7 +381,7 @@ def _reasons_html(v):
     return '<ul class="reasons">' + "".join(f"<li>{escape(p)}</li>" for p in parts) + "</ul>"
 
 
-def render_report(grade_json, level, name, question_text, transcript, hw_score, hw_note, essay_img=""):
+def render_report(grade_json, level, name, question_text, transcript, hw_score, hw_note, essay_imgs=None, question_imgs=None):
     lv = RUBRIC["levels"][level]
     date = datetime.now().strftime("%Y-%m-%d")
     wc = count_words(transcript)
@@ -427,11 +428,22 @@ def render_report(grade_json, level, name, question_text, transcript, hw_score, 
     sug = grade_json.get("修改建议") or []
     sug_html = '<ol class="suggest">' + "".join(f"<li>{escape(str(x))}</li>" for x in sug) + "</ol>" if sug else '<div class="note">（无）</div>'
 
-    q = (question_text or "").strip()
-    q_block = f'<h2 class="sec">〇、作文题</h2><div class="note">{escape(q) if q else "（未提供题目）"}</div>'
+    if question_imgs:
+        q_inner = "".join(f'<img src="{u}" alt="题目截图">' for u in question_imgs)
+        q_block = f'<h2 class="sec">〇、作文题</h2><div class="essay-img">{q_inner}<div class="cap">题目截图</div></div>'
+    else:
+        q = (question_text or "").strip()
+        q_block = f'<h2 class="sec">〇、作文题</h2><div class="note">{escape(q) if q else "（未提供题目）"}</div>'
 
     # 升格范文：把 **好词好句** 转成加粗
     polished_html = _bold(str(grade_json.get("升格范文", "")) or "（无）")
+
+    # 作文原图（可多张）
+    if essay_imgs:
+        e_inner = "".join(f'<img src="{u}" alt="作文原稿">' for u in essay_imgs)
+        essay_html = f'{e_inner}<div class="cap">学生手写原稿</div>'
+    else:
+        essay_html = '<div class="note">（无作文图）</div>'
 
     html = TEMPLATE
     fill = {
@@ -443,7 +455,7 @@ def render_report(grade_json, level, name, question_text, transcript, hw_score, 
         "{{TOTAL}}": str(total),
         "{{BAND}}": band,
         "{{QUESTION_BLOCK}}": q_block,
-        "{{ESSAY_IMG}}": essay_img,
+        "{{ESSAY_IMG}}": essay_html,
         "{{SCORE_TABLE}}": "".join(rows),
         "{{ANNOTATIONS}}": ann_html,
         "{{HIGHLIGHTS}}": hl_html,
@@ -463,36 +475,67 @@ def html_to_pdf(html):
 
 # ---------------------------------------------------------------- 请求处理
 def handle_grade(req):
-    name = (req.get("name") or "").strip() or "学生"
+    name = (req.get("name") or "").strip()
+    if not name:
+        raise ValueError("请填写学生姓名")
     level = (req.get("level") or "").strip()
     if level not in RUBRIC["levels"]:
-        raise ValueError(f"未知级别：{level}")
-    essay_b64 = (req.get("essay_image") or "").strip()
-    if not essay_b64:
-        raise ValueError("缺少作文图片")
+        raise ValueError("请选择有效的学生级别")
 
     mock = bool(req.get("mock")) or SERVER_MOCK
 
-    essay_data = decode_image(essay_b64)
+    # 作文图：支持多张（essay_images 列表）或单张（essay_image），向后兼容
+    essay_b64s = [b for b in (req.get("essay_images") or []) if isinstance(b, str) and b.strip()]
+    if not essay_b64s:
+        single = (req.get("essay_image") or "").strip()
+        essay_b64s = [single] if single else []
+    if not essay_b64s:
+        raise ValueError("缺少作文图片")
+    essay_datas = [decode_image(b) for b in essay_b64s]
+
     if mock:
-        transcript, hw_score, hw_note = MOCK_TRANSCRIPT, 4, "mock 模式示例"
+        transcripts, hw_scores, hw_notes = [MOCK_TRANSCRIPT], [4], ["mock 模式示例"]
     else:
-        transcript, hw_score, hw_note = transcribe(essay_data)
+        transcripts, hw_scores, hw_notes = [], [], []
+        for d in essay_datas:
+            t, s, n = transcribe(d)
+            transcripts.append(t or "")
+            hw_scores.append(s)
+            hw_notes.append(n or "")
+    transcript = "\n\n".join(t for t in transcripts if t)
+    hw_score = max(1, min(5, round(sum(hw_scores) / len(hw_scores)))) if hw_scores else 3
+    hw_note = "；".join(dict.fromkeys(n for n in hw_notes if n)) or "由视觉模型评估"
 
+    # 题目：文字 + 多张截图。截图用于显示（直接用图）；OCR 出的文字只用于批改参考
     question_text = (req.get("question_text") or "").strip()
-    question_b64 = (req.get("question_image") or "").strip()
-    if question_b64:
-        if mock:
-            q_text = "（题目图：mock）"
-        else:
-            q_text, _, _ = transcribe(decode_image(question_b64))
-        question_text = (question_text + "\n" + q_text).strip() if question_text else q_text
+    q_b64s = [b for b in (req.get("question_images") or []) if isinstance(b, str) and b.strip()]
+    if not q_b64s:
+        single_q = (req.get("question_image") or "").strip()
+        q_b64s = [single_q] if single_q else []
+    question_imgs = []
+    q_texts = []
+    for b in q_b64s:
+        q_data = decode_image(b)
+        if not mock:
+            qt, _, _ = transcribe(q_data)
+            if qt:
+                q_texts.append(qt)
+        q_bytes, q_mime = _downscale_image(q_data)
+        question_imgs.append(f"data:{q_mime};base64,{base64.b64encode(q_bytes).decode()}")
+    question_for_grading = question_text
+    if q_texts:
+        extra = "\n".join(q_texts)
+        question_for_grading = (question_text + "\n" + extra).strip() if question_text else extra
 
-    grade_json = grade(transcript, question_text, level, mock)
-    # 原图缩到适合 PDF 的尺寸，转 data URI 嵌进报告
-    img_bytes, img_mime = _downscale_image(essay_data)
-    essay_img = f"data:{img_mime};base64,{base64.b64encode(img_bytes).decode()}"
-    html = render_report(grade_json, level, name, question_text, transcript, hw_score, hw_note, essay_img)
+    grade_json = grade(transcript, question_for_grading, level, name, mock)
+
+    # 作文原图（全部）缩到适合 PDF 的尺寸
+    essay_imgs = []
+    for d in essay_datas:
+        img_bytes, img_mime = _downscale_image(d)
+        essay_imgs.append(f"data:{img_mime};base64,{base64.b64encode(img_bytes).decode()}")
+
+    html = render_report(grade_json, level, name, question_text, transcript, hw_score, hw_note, essay_imgs, question_imgs)
     return html_to_pdf(html)
 
 
