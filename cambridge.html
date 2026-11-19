@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#faf8f5">
+<title>赤舟作文批改 · 剑桥专项 KET/PET/FCE</title>
+<style>
+:root{
+  --red-50:#fdf6f4; --red-100:#f9e9e6; --red-200:#f0d2cd; --red-600:#8b1a1a; --red-700:#6d1313;
+  --paper:#faf8f5; --surface:#fff; --surface-2:#f5f1eb;
+  --ink:#241f1a; --ink-2:#5c544b; --ink-3:#8b8177;
+  --line:rgba(36,31,26,.10); --line-2:rgba(36,31,26,.16);
+  --ok:#1f7a4d; --err:#a22222;
+  --r-xl:18px; --r-md:12px; --r-sm:8px;
+  --sh-1:0 1px 2px rgba(36,31,26,.05);
+  --sh-2:0 1px 2px rgba(36,31,26,.05), 0 10px 30px -18px rgba(36,31,26,.28);
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --serif:"Noto Serif SC","Source Han Serif SC","Songti SC",Georgia,serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.75}
+a{color:var(--red-600)}
+header{background:var(--red-600);color:#fff;padding:20px 24px}
+header .in{max-width:880px;margin:0 auto}
+header h1{margin:0;font-family:var(--serif);font-size:23px;line-height:1.25}
+header p{margin:6px 0 0;font-size:13px;opacity:.82}
+header a{color:#fff;font-size:13px;text-decoration:none;opacity:.85;border-bottom:1px solid rgba(255,255,255,.35);padding-bottom:1px;margin-right:14px}
+main{max-width:880px;margin:0 auto;padding:24px 24px 72px}
+
+.howto{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);padding:18px 20px;margin-bottom:16px;box-shadow:var(--sh-1)}
+.howto h2{margin:0 0 10px;font-size:14px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.step{display:flex;gap:9px}
+.num{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:var(--red-100);color:var(--red-600);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.step b{display:block;font-size:13.5px}
+.step span{display:block;font-size:12.5px;color:var(--ink-2);line-height:1.6}
+
+.form{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);padding:22px;box-shadow:var(--sh-1)}
+.field{margin-bottom:18px}
+.field > label{display:block;font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:7px}
+.field .req{color:var(--red-600)}
+input[type=text],textarea{width:100%;font-family:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--ink);background:#fff}
+input[type=text]:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--red-600);outline-offset:2px}
+textarea{min-height:64px;resize:vertical;line-height:1.6}
+select{font-family:inherit;font-size:15px;padding:10px 32px 10px 12px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:#fff;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235c544b' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;cursor:pointer;width:100%}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.zone{border:1.5px dashed var(--line-2);border-radius:var(--r-md);padding:16px;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;color:var(--ink-3);font-size:13px;cursor:pointer;background:var(--paper)}
+.zone:hover{border-color:var(--red-200);background:var(--red-50)}
+.zone .pick{color:var(--red-600);font-weight:600;text-decoration:underline}
+.zone b{font-size:14px;color:var(--ink)}
+.zone .sub{font-size:12px}
+.previews{display:none;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px}
+.zone.has .previews{display:flex}
+.thumb{position:relative}
+.thumb img{display:block;max-width:120px;max-height:90px;border-radius:6px;border:1px solid var(--line)}
+.thumb-x{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:none;background:var(--red-600);color:#fff;font-size:12px;line-height:20px;cursor:pointer;padding:0}
+.btn{font-family:inherit;font-size:15px;font-weight:600;border-radius:var(--r-sm);padding:12px 26px;border:none;background:var(--red-600);color:#fff;cursor:pointer;min-height:48px}
+.btn:hover{background:var(--red-700)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.status{font-size:13.5px;color:var(--ink-2);margin-top:12px;min-height:20px}
+.status.err{color:var(--err)}
+.status.ok{color:var(--ok)}
+.result{margin-top:18px;display:none;background:var(--red-50);border:1px solid var(--red-200);border-radius:var(--r-md);padding:14px 16px;font-size:14px}
+.result.on{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-3px;margin-right:8px;visibility:hidden}
+.busy .spinner{visibility:visible}
+@media(max-width:720px){.steps{grid-template-columns:1fr}.row2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="in">
+    <h1>赤舟作文批改 · 剑桥专项</h1>
+    <p>按 KET / PET / FCE 官方写作评分标准批改（题型不同、分值不同）</p>
+    <p style="margin-top:8px"><a href="/">← 单篇（中高考版）</a><a href="/batch.html">批量模式</a></p>
+  </div>
+</header>
+<main>
+  <section class="howto">
+    <h2>怎么用（3 步）</h2>
+    <div class="steps">
+      <div class="step"><span class="num">1</span><div><b>选考试 + 题型</b><span>KET / PET / FCE，再选题型（不同题型分值不同）</span></div></div>
+      <div class="step"><span class="num">2</span><div><b>填姓名、贴截图</b><span>填学生姓名；贴题目截图/文字、学生作文截图（可多张）</span></div></div>
+      <div class="step"><span class="num">3</span><div><b>开始批改</b><span>按该考试评分标准批改，1–2 分钟自动出 PDF</span></div></div>
+    </div>
+  </section>
+
+  <section class="form">
+    <div class="field">
+      <label>学生姓名 <span class="req">*</span></label>
+      <input type="text" id="name" placeholder="必填，会印在报告上">
+    </div>
+
+    <div class="field">
+      <label>考试与题型 <span class="req">*</span></label>
+      <div class="row2">
+        <select id="exam"></select>
+        <select id="part"></select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>作文题目（可选）</label>
+      <textarea id="questionText" placeholder="老师给的题目文字；是截图就在下面贴图。可留空。"></textarea>
+    </div>
+
+    <div class="field">
+      <label>题目截图（可选，可多张）</label>
+      <div class="zone" id="qZone" tabindex="0" role="button" aria-label="贴题目截图">
+        <b>【题目 / 写作要求】截图贴这里</b>
+        <span class="sub">老师布置的题目，别贴成学生作文 · 可 <span class="pick" id="qPick">选择文件</span> 或粘贴</span>
+        <div class="previews" id="qPreview"></div>
+      </div>
+      <input type="file" id="qFile" accept="image/*" hidden>
+    </div>
+
+    <div class="field">
+      <label>学生作文截图 <span class="req">*</span></label>
+      <div class="zone" id="eZone" tabindex="0" role="button" aria-label="贴学生作文截图">
+        <b>【学生作文】点这里粘贴，可多张</b>
+        <span class="sub">学生实际写的那篇，一页写不完就分几张 · 可 <span class="pick" id="ePick">选择文件</span> 或拖入</span>
+        <div class="previews" id="ePreview"></div>
+      </div>
+      <input type="file" id="eFile" accept="image/*" hidden>
+    </div>
+
+    <button class="btn" id="btn"><span class="spinner"></span><span class="btn-label">按剑桥标准批改并生成 PDF</span></button>
+    <p class="status" id="status"></p>
+    <div class="result" id="result"></div>
+  </section>
+</main>
+<script>
+const accessCode = new URLSearchParams(location.search).get('code') || '';
+
+let CAM = null, examSel = document.getElementById('exam'), partSel = document.getElementById('part');
+let qImages = [], eImages = [];
+
+function today(){ const d=new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; }
+function setStatus(m, cls){ const el=document.getElementById('status'); el.textContent=m; el.className='status'+(cls?' '+cls:''); }
+
+function compressImage(dataUrl, maxW, cb){
+  const img=new Image();
+  img.onload=()=>{ let w=img.naturalWidth,h=img.naturalHeight; if(w>maxW){h=Math.round(h*maxW/w);w=maxW;} const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); cb(c.toDataURL('image/jpeg',0.85)); };
+  img.src=dataUrl;
+}
+
+function buildZones(zone, pick, fileInput, preview, onChange){
+  let imgs=[];
+  function render(){
+    preview.innerHTML = imgs.map((src,i)=>`<span class="thumb"><img src="${src}"><button class="thumb-x" data-i="${i}">×</button></span>`).join('');
+    zone.classList.toggle('has', imgs.length>0);
+    onChange(imgs.slice());
+  }
+  function addFiles(files){
+    for(const f of files){ if(!f.type || !f.type.startsWith('image/')) continue; const r=new FileReader(); r.onload=()=>compressImage(r.result,1600,(c)=>{imgs.push(c);render();}); r.readAsDataURL(f); }
+  }
+  zone.addEventListener('click',(e)=>{
+    if(e.target===pick) return;
+    if(e.target.classList && e.target.classList.contains('thumb-x')){ e.stopPropagation(); imgs.splice(+e.target.dataset.i,1); render(); return; }
+    zone.focus();
+  });
+  zone.addEventListener('paste',(e)=>{
+    const items=(e.clipboardData&&e.clipboardData.items)||[]; const fs=[];
+    for(const it of items) if(it.type&&it.type.startsWith('image/')) fs.push(it.getAsFile());
+    if(fs.length){ e.preventDefault(); addFiles(fs); }
+  });
+  zone.addEventListener('drop',(e)=>{ e.preventDefault(); addFiles(Array.from(e.dataTransfer.files||[])); });
+  zone.addEventListener('dragover',(e)=>e.preventDefault());
+  pick.addEventListener('click',(e)=>{ e.stopPropagation(); fileInput.click(); });
+  fileInput.multiple=true;
+  fileInput.addEventListener('change',()=>{ addFiles(Array.from(fileInput.files||[])); fileInput.value=''; });
+}
+
+buildZones(document.getElementById('qZone'), document.getElementById('qPick'), document.getElementById('qFile'), document.getElementById('qPreview'), (a)=>{qImages=a;});
+buildZones(document.getElementById('eZone'), document.getElementById('ePick'), document.getElementById('eFile'), document.getElementById('ePreview'), (a)=>{eImages=a;});
+
+function fillParts(){
+  const exam = examSel.value;
+  const e = CAM.exams.find(x=>x.code===exam);
+  partSel.innerHTML='';
+  e.parts.forEach(p=>{
+    const o=document.createElement('option'); o.value=p.code; o.textContent=`${p.label}（${p.words}，${p.max} 分）`; partSel.appendChild(o);
+  });
+}
+
+fetch('/cambridge.json').then(r=>r.json()).then(data=>{
+  CAM=data;
+  const ph=document.createElement('option'); ph.value=''; ph.textContent='请选择考试'; ph.disabled=true; ph.selected=true;
+  examSel.appendChild(ph);
+  data.exams.forEach(e=>{ const o=document.createElement('option'); o.value=e.code; o.textContent=`${e.name}（${e.cefr}）`; examSel.appendChild(o); });
+  examSel.value='';
+  partSel.innerHTML='<option value="" disabled selected>先选考试</option>';
+  examSel.addEventListener('change', fillParts);
+}).catch(()=>{ setStatus('加载评分标准失败，请刷新页面', 'err'); });
+
+document.getElementById('btn').addEventListener('click', async ()=>{
+  const btn=document.getElementById('btn');
+  if(btn.disabled) return;
+  const name=document.getElementById('name').value.trim();
+  if(!name){ setStatus('请先填写学生姓名。','err'); document.getElementById('name').focus(); return; }
+  const exam=examSel.value; if(!exam){ setStatus('请先选择考试。','err'); return; }
+  const part=partSel.value; if(!part){ setStatus('请先选择题型。','err'); return; }
+  if(!eImages.length){ setStatus('还没放学生作文截图。','err'); document.getElementById('eZone').focus(); return; }
+
+  const payload={
+    name, exam, part,
+    question_text: document.getElementById('questionText').value.trim(),
+    question_images: qImages,
+    essay_images: eImages,
+  };
+  btn.disabled=true; btn.classList.add('busy');
+  btn.querySelector('.btn-label').textContent='批改中…';
+  document.getElementById('result').classList.remove('on');
+  setStatus('提交中…');
+  try{
+    let resp=await fetch('/api/grade_cam',{method:'POST',headers:{'Content-Type':'application/json','X-Access-Code':accessCode},body:JSON.stringify(payload)});
+    if(resp.status===401){ const code=(prompt('需要访问码，请输入：')||'').trim(); if(code){ location.search='?code='+encodeURIComponent(code); return; } }
+    if(!resp.ok){ const e=await resp.json().catch(()=>({error:'HTTP '+resp.status})); throw new Error(e.error||('HTTP '+resp.status)); }
+    const job=await resp.json();
+    const started=Date.now();
+    while(true){
+      await new Promise(r=>setTimeout(r,3000));
+      const pr=await fetch(`/api/result?job_id=${encodeURIComponent(job.job_id)}`,{headers:{'X-Access-Code':accessCode}});
+      if(pr.status===404) throw new Error('任务过期，请重试');
+      const ct=pr.headers.get('Content-Type')||'';
+      if(ct.includes('application/pdf')){
+        const blob=await pr.blob(); const url=URL.createObjectURL(blob);
+        const fname=`剑桥批改-${name}-${exam}-${today()}.pdf`;
+        const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
+        const rEl=document.getElementById('result'); rEl.innerHTML=`完成（${Math.round((Date.now()-started)/1000)} 秒）｜<a href="${url}" download="${fname}">再下载一次</a>`; rEl.classList.add('on');
+        setStatus('完成，PDF 已开始下载。','ok'); return;
+      }
+      const jr=await pr.json().catch(()=>({}));
+      if(jr.status==='error') throw new Error(jr.error||'批改失败');
+      setStatus(`批改中… 已等待 ${Math.round((Date.now()-started)/1000)} 秒（约 1–2 分钟）`);
+    }
+  }catch(e){ setStatus('失败：'+e.message,'err'); }
+  finally{ btn.disabled=false; btn.classList.remove('busy'); btn.querySelector('.btn-label').textContent='按剑桥标准批改并生成 PDF'; }
+});
+</script>
+</body>
+</html>
