@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>作文批改报告</title>
+<style>
+/* 赤舟国际教育 · 作文批改报告固定版式
+   配色同讲义：红 #8B1A1A · 黑 #222222 · 灰 #AAAAAA/#EEEEEE/#666666 · 浅粉 #FBF3F3 */
+:root{ --red:#8B1A1A; --pink:#FBF3F3; --line:#AAAAAA; --thead:#EEEEEE; --text:#222222; --muted:#666666; }
+@page{
+  size: A4; margin: 16mm 14mm 16mm 14mm;
+  @top-left{ content:"赤舟国际教育·教研组"; font-family:"Noto Sans CJK SC","Noto Sans SC","Microsoft YaHei",sans-serif; font-size:9.5px; color:#8B1A1A; font-weight:600; }
+  @top-right{ content:"作文批改报告"; font-family:"Noto Sans CJK SC","Noto Sans SC","Microsoft YaHei",sans-serif; font-size:9px; color:#8B1A1A; }
+}
+*{ box-sizing:border-box; }
+body{ font-family:"Noto Sans CJK SC","Noto Sans SC","Microsoft YaHei",sans-serif; color:#222222; font-size:12px; line-height:1.6; margin:0; }
+.cover{ background:#8B1A1A; border-radius:6px; padding:13px 16px 12px; margin-bottom:10px; }
+.cover h1{ margin:0; font-size:22px; color:#fff; font-weight:700; }
+.cover .sub{ color:#fff; font-size:11px; margin-top:4px; }
+.cover .score{ margin-top:8px; font-size:20px; color:#fff; font-weight:700; }
+h2.sec{ color:#8B1A1A; font-size:15px; margin:16px 0 6px; padding:4px 0 4px 10px; border-left:5px solid #8B1A1A; page-break-after:avoid; }
+table{ width:100%; border-collapse:collapse; margin:6px 0 10px; font-size:11.5px; }
+th,td{ border:1px solid #AAAAAA; padding:4px 7px; text-align:left; vertical-align:top; }
+th{ background:#EEEEEE; font-weight:600; }
+.note{ background:#FBF3F3; border-radius:4px; padding:7px 11px; margin:6px 0; font-size:11.5px; }
+.note .label{ display:inline-block; background:#8B1A1A; color:#fff; font-size:10px; padding:1px 7px; border-radius:3px; margin-right:7px; font-weight:600; }
+.transcript{ background:#FAFAFA; border:1px solid #EEEEEE; border-radius:4px; padding:9px 12px; font-size:12px; white-space:pre-wrap; margin:6px 0; }
+.wrong{ color:#A22222; font-weight:600; }
+.right{ color:#222; }
+.ocr-note{ color:#666666; font-size:10.5px; margin:2px 0 6px; }
+.suggest{ margin:4px 0 4px 0; padding-left:0; }
+.suggest li{ margin:3px 0; }
+.essay-img{ border:1px solid #EEEEEE; border-radius:4px; padding:8px; margin:6px 0; text-align:center; }
+.essay-img img{ max-width:100%; max-height:360px; border-radius:3px; }
+.essay-img .cap{ color:#666; font-size:10.5px; margin-top:4px; }
+strong{ font-weight:700; }
+tr.total-row td{ font-weight:700; background:#FBF3F3; color:#8B1A1A; }
+ul.reasons{ margin:0; padding-left:14px; }
+ul.reasons li{ margin:2px 0; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>{{NAME}} · 作文批改报告</h1>
+  <div class="sub">{{LEVEL}}（{{TARGET}}）｜ 字数 {{WORDS}} 词 ｜ {{DATE}}</div>
+  <div class="score">总分 {{TOTAL}} / 25 ｜ {{BAND}}</div>
+</div>
+
+{{QUESTION_BLOCK}}
+
+<h2 class="sec">一、作文原稿</h2>
+<div class="essay-img"><img src="{{ESSAY_IMG}}" alt="作文原稿"><div class="cap">学生手写原稿</div></div>
+
+<h2 class="sec">二、评分表（5 维 × 5 分 = 25 分）</h2>
+<table>
+  <tr><th style="width:90px">维度</th><th style="width:50px">得分</th><th>评语</th></tr>
+  {{SCORE_TABLE}}
+</table>
+
+<h2 class="sec">三、逐句批改</h2>
+<table>
+  <tr><th style="width:34%">原句</th><th style="width:34%">改正</th><th>原因（讲机制）</th></tr>
+  {{ANNOTATIONS}}
+</table>
+
+<h2 class="sec">四、亮点</h2>
+{{HIGHLIGHTS}}
+
+<h2 class="sec">五、总评</h2>
+<div class="note"><span class="label">总评</span>{{OVERALL}}</div>
+
+<h2 class="sec">六、修改建议</h2>
+{{SUGGESTIONS}}
+
+<h2 class="sec">七、升格范文（保留原意）</h2>
+<div class="transcript">{{POLISHED}}</div>
+
+</body>
+</html>
