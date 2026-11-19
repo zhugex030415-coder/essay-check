@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#faf8f5">
+<title>赤舟作文批改 · 批量模式</title>
+<style>
+:root{
+  --red-600:#8b1a1a; --red-100:#f9e9e6; --paper:#faf8f5; --surface:#fff;
+  --ink:#241f1a; --ink-2:#5c544b; --ink-3:#8b8177;
+  --line:rgba(36,31,26,.12); --ok:#1f7a4d; --err:#a22222; --r:12px;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--ink)}
+header{background:var(--red-600);color:#fff;padding:16px 22px}
+header h1{margin:0;font-size:19px}
+header p{margin:4px 0 0;font-size:12px;opacity:.9}
+header a{color:#fff;font-size:12px;text-decoration:underline;opacity:.9}
+main{max-width:920px;margin:0 auto;padding:18px 16px 60px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
+.toolbar label{font-size:13px;color:var(--ink-2)}
+.toolbar select,.toolbar button{font-family:inherit;font-size:13px}
+select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff}
+button{cursor:pointer;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:#fff;font-weight:600}
+button.primary{background:var(--red-600);color:#fff;border-color:var(--red-600)}
+button:disabled{opacity:.5;cursor:not-allowed}
+#overall{font-size:13px;color:var(--ink-2);margin-left:auto}
+.row{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:10px}
+.row-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.idx{width:24px;height:24px;border-radius:50%;background:var(--red-100);color:var(--red-600);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.name{flex:1;min-width:120px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit}
+.status{font-size:12px;color:var(--ink-3);min-width:90px;text-align:right}
+.dl{font-size:12px;color:var(--red-600);font-weight:600;text-decoration:underline}
+.remove{font-size:12px;color:var(--ink-3);background:none;border:none;padding:2px 6px}
+.zone{border:2px dashed #ccc;border-radius:8px;padding:10px;text-align:center;font-size:12px;color:var(--ink-3);cursor:pointer;background:#fafafa;outline:none;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.zone:focus{border-color:var(--red-600);color:var(--red-600);background:var(--red-100)}
+.zone.has{border-style:solid;border-color:#b98a8a}
+.zone img{max-width:100%;max-height:110px;border-radius:4px;display:none}
+.pick{color:var(--red-600);text-decoration:underline;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <h1>赤舟作文批改 · 批量模式</h1>
+  <p>一次加多篇，填好姓名，排队自动出每份 PDF</p>
+  <p><a href="/" id="backLink">← 返回单篇模式</a></p>
+</header>
+<main>
+  <div class="toolbar">
+    <label>级别 <select id="level"></select></label>
+    <button id="addRow">＋ 添加一篇</button>
+    <button id="pickMulti">＋ 批量选图</button>
+    <button class="primary" id="runAll">全部批改</button>
+    <span id="overall"></span>
+  </div>
+  <div id="rows"></div>
+  <input type="file" id="multiFile" accept="image/*" multiple hidden>
+</main>
+<script>
+const LEVELS = [
+  ["初L2","Movers · 小学 A1"],["初L3","Flyers · 初一 A2"],
+  ["中L1","AEIM L1 · KET · 初二–中考"],["中L2","AEIM L2 · KET优/PET过 · 中考–高一"],
+  ["中L3","AEIM L3 · PET优 · 高二"],["高L1","FCE过 · 高考 B2"],["高L2","FCE优 · 六级 B2–C1"],
+];
+const levelSel = document.getElementById('level');
+LEVELS.forEach(([c,t]) => { const o=document.createElement('option'); o.value=c; o.textContent=`${c}（${t}）`; levelSel.appendChild(o); });
+levelSel.value = '中L1';
+
+const accessCode = new URLSearchParams(location.search).get('code') || '';
+document.getElementById('backLink').href = '/' + (location.search || '');
+const rowsEl = document.getElementById('rows');
+const overall = document.getElementById('overall');
+const rows = [];
+let seq = 0;
+
+function today(){ const d=new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; }
+function compressImage(dataUrl, maxW, cb){
+  const img = new Image();
+  img.onload = () => {
+    let w=img.naturalWidth, h=img.naturalHeight;
+    if (w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    cb(c.toDataURL('image/jpeg',0.85));
+  };
+  img.src = dataUrl;
+}
+
+function makeRow(){
+  const el = document.createElement('div'); el.className='row';
+  const idx = ++seq;
+  el.innerHTML = `
+    <div class="row-head">
+      <span class="idx">${rows.length+1}</span>
+      <input class="name" placeholder="学生姓名（可留空）">
+      <span class="status">未添加</span>
+      <a class="dl" style="display:none" target="_blank">下载 PDF</a>
+      <button class="remove" title="删除">✕</button>
+    </div>
+    <div class="zone"><span>点这里粘贴截图，或 <b class="pick">选择文件</b></span><img class="preview" alt="预览"></div>
+    <input type="file" accept="image/*" hidden>
+  `;
+  const zone = el.querySelector('.zone'), preview = el.querySelector('.preview'), fileInput = el.querySelector('input[type=file]');
+  const pick = el.querySelector('.pick'), statusEl = el.querySelector('.status'), dl = el.querySelector('.dl'), nameInput = el.querySelector('.name'), idxEl = el.querySelector('.idx');
+  const row = { el, data:'', statusEl, dl, nameInput, idxEl };
+  function setImage(dataUrl){
+    compressImage(dataUrl, 1600, (compressed) => {
+      row.data = compressed; preview.src = compressed; preview.style.display='block'; zone.classList.add('has');
+      statusEl.textContent = '待提交';
+    });
+  }
+  zone.addEventListener('click', (e)=>{ if (e.target!==pick) zone.focus(); });
+  zone.addEventListener('paste', (e)=>{
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    for (const it of items){ if (it.type && it.type.startsWith('image/')){ e.preventDefault(); setImageByFile(it.getAsFile()); return; } }
+  });
+  zone.addEventListener('dragover', (e)=>e.preventDefault());
+  zone.addEventListener('drop', (e)=>{ e.preventDefault(); const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) setImageByFile(f); });
+  pick.addEventListener('click', (e)=>{ e.stopPropagation(); fileInput.click(); });
+  fileInput.addEventListener('change', ()=>{ if (fileInput.files&&fileInput.files[0]) setImageByFile(fileInput.files[0]); });
+  function setImageByFile(file){ const r=new FileReader(); r.onload=()=>setImage(r.result); r.readAsDataURL(file); }
+  el.querySelector('.remove').addEventListener('click', ()=>{
+    if (row.running) return;
+    const i = rows.indexOf(row); if (i>=0) rows.splice(i,1);
+    el.remove(); renumber();
+  });
+  rows.push(row);
+  rowsEl.appendChild(el);
+  return row;
+}
+function renumber(){ rows.forEach((r,i)=> r.idxEl.textContent = i+1); }
+
+document.getElementById('addRow').addEventListener('click', ()=> makeRow());
+document.getElementById('multiFile').addEventListener('change', (e)=>{
+  const files = e.target.files || [];
+  for (const f of files){
+    const row = makeRow();
+    const r = new FileReader();
+    r.onload = (()=>{ const dataUrl = r.result; compressImage(dataUrl, 1600, (c)=>{ row.data=c; const p=row.el.querySelector('.preview'); p.src=c; p.style.display='block'; row.el.querySelector('.zone').classList.add('has'); row.statusEl.textContent='待提交'; }); });
+    r.readAsDataURL(f);
+  }
+  e.target.value = '';
+});
+document.getElementById('pickMulti').addEventListener('click', ()=> document.getElementById('multiFile').click());
+
+async function processRow(row, level){
+  row.running = true;
+  row.statusEl.textContent = '提交中…';
+  row.dl.style.display = 'none';
+  try {
+    const resp = await fetch('/api/grade', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Access-Code':accessCode},
+      body: JSON.stringify({ name: (row.nameInput.value.trim()||'学生'), level, question_text:'', question_image:'', essay_image: row.data }),
+    });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({error:'HTTP '+resp.status})); throw new Error(e.error||('HTTP '+resp.status)); }
+    const job = await resp.json();
+    const started = Date.now();
+    while (true) {
+      await new Promise(r=>setTimeout(r,3000));
+      const pr = await fetch(`/api/result?job_id=${encodeURIComponent(job.job_id)}`, { headers:{'X-Access-Code':accessCode} });
+      if (pr.status === 404) throw new Error('任务过期，请重试');
+      const ct = pr.headers.get('Content-Type') || '';
+      if (ct.indexOf('application/pdf') >= 0) {
+        const blob = await pr.blob();
+        const url = URL.createObjectURL(blob);
+        const fname = `作文批改-${(row.nameInput.value.trim()||'学生')}-${level}-${today()}.pdf`;
+        const a = document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
+        row.dl.href = url; row.dl.download = fname; row.dl.style.display='inline';
+        row.statusEl.textContent = `完成 ${Math.round((Date.now()-started)/1000)}s`;
+        break;
+      }
+      const jr = await pr.json().catch(()=>({}));
+      if (jr.status === 'error') throw new Error(jr.error || '批改失败');
+      row.statusEl.textContent = `处理中 ${Math.round((Date.now()-started)/1000)}s`;
+    }
+  } catch (e) {
+    row.statusEl.textContent = '失败：' + e.message;
+  } finally {
+    row.running = false;
+  }
+}
+
+document.getElementById('runAll').addEventListener('click', async ()=>{
+  const todo = rows.filter(r => r.data && !r.running);
+  if (!todo.length){ overall.textContent = '还没有添加作文（先加一篇并贴上截图）'; return; }
+  const level = levelSel.value;
+  document.getElementById('runAll').disabled = true;
+  let next = 0, done = 0;
+  const CONCURRENCY = 2;
+  async function worker(){
+    while (true){
+      const i = next++;
+      if (i >= todo.length) return;
+      await processRow(todo[i], level);
+      done++;
+      overall.textContent = `完成 ${done}/${todo.length}`;
+    }
+  }
+  const ws = [];
+  for (let i=0;i<Math.min(CONCURRENCY, todo.length);i++) ws.push(worker());
+  await Promise.all(ws);
+  overall.textContent = `全部完成 ${done}/${todo.length}`;
+  document.getElementById('runAll').disabled = false;
+});
+
+// 初始给两行
+makeRow(); makeRow();
+</script>
+</body>
+</html>
