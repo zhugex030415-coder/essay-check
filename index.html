@@ -315,9 +315,9 @@ kbd{
     <div class="step-head">
       <span class="num" aria-hidden="true">02</span>
       <h2>作文题目</h2>
-      <span class="chip">可选</span>
+      <span class="chip req">必填</span>
     </div>
-    <p class="note">可以打字，也可以直接 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴题目截图（可多张）；整批共用，没有可留空。</p>
+    <p class="note">可以打字，也可以直接 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴题目截图（可多张）；整批共用，必填（否则无法判断是否偏题）。</p>
     <div class="field">
       <label for="questionText">题目（文字或截图）</label>
       <textarea id="questionText" placeholder="例如：My Favourite Sport（至少 80 词）…  也可以直接在这里 Ctrl+V 粘贴截图"></textarea>
@@ -599,6 +599,7 @@ btn.addEventListener('click', async () => {
   if (btn.disabled) return;
   const level = sel.value;
   if (!level) { setStatus('请先选择学生级别。', 'err'); sel.focus(); return; }
+  if (!qText.value.trim() && !questionImgs.length) { setStatus('请先填写作文题目（文字或粘贴截图）。', 'err'); qText.focus(); return; }
   const todo = rows.filter(r => r.images.length && !r.running);
   if (!todo.length) { setStatus('还没放作文截图。', 'err'); return; }
   const noName = todo.filter(r => !r.nameInput.value.trim());
