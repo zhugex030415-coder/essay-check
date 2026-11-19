@@ -553,6 +553,11 @@ class Handler(BaseHTTPRequestHandler):
         import time as _t
         out = {"step": step}
         try:
+            if step == "pdf":
+                t = _t.time()
+                pdf = html_to_pdf("<html><body><p>你好 Hello 测试</p></body></html>")
+                out.update(pdf=round(_t.time() - t, 1), pdf_bytes=len(pdf), ok=True)
+                return out
             data = decode_image((req.get("essay_image") or "").strip())
             text, hw, note = "", 3, ""
             if step in ("all", "ocr"):
