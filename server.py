@@ -554,7 +554,7 @@ def handle_grade(req):
             hw_notes.append(n or "")
     transcript = "\n\n".join(t for t in transcripts if t)
     hw_score = max(1, min(5, round(sum(hw_scores) / len(hw_scores)))) if hw_scores else 3
-    hw_note = "；".join(dict.fromkeys(n for n in hw_notes if n)) or "由视觉模型评估"
+    hw_note = next((n for n in hw_notes if n), "") or "由视觉模型评估"
 
     # 题目：文字 + 多张截图。截图用于显示（直接用图）；OCR 出的文字只用于批改参考
     question_text = (req.get("question_text") or "").strip()
