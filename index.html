@@ -270,6 +270,21 @@ kbd{
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important}
 }
+.row-edit{flex:none; font-size:12px; font-weight:600; color:var(--ink-2); text-decoration:none; border-bottom:1px solid var(--line-2); display:none; cursor:pointer; margin-left:10px}
+.modal{position:fixed; inset:0; z-index:50; background:rgba(36,31,26,.45); display:none; align-items:center; justify-content:center; padding:16px}
+.modal.on{display:flex}
+.modal-box{background:#fff; border-radius:var(--r-xl); max-width:660px; width:100%; max-height:86vh; display:flex; flex-direction:column; box-shadow:var(--sh-2)}
+.modal-head{display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--line)}
+.modal-head b{font-size:15px}
+.modal-head button{background:none; border:none; font-size:22px; line-height:1; color:var(--ink-3); cursor:pointer; padding:0 4px}
+.modal-body{padding:14px 18px; overflow-y:auto; display:flex; flex-direction:column; gap:14px}
+.edit-row{display:flex; flex-direction:column; gap:6px}
+.edit-row label{font-size:13px; font-weight:600; color:var(--ink-2)}
+.edit-score{width:76px; padding:7px 9px; border:1px solid var(--line-2); border-radius:var(--r-sm); font-family:inherit; font-size:14px}
+.edit-row textarea{width:100%; min-height:52px; resize:vertical; font-family:inherit; font-size:13.5px; line-height:1.6; padding:8px 10px; border:1px solid var(--line-2); border-radius:var(--r-sm)}
+.modal-foot{padding:12px 18px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:10px}
+.modal-foot .btn{min-height:42px; padding:0 20px}
+.modal-foot .ghost{min-height:42px; padding:0 16px; border:1px solid var(--line-2); border-radius:var(--r-md); background:#fff; color:var(--ink-2); font-family:inherit; font-weight:600; cursor:pointer}
 </style>
 </head>
 <body>
@@ -351,6 +366,17 @@ kbd{
 
   <p class="fineprint">一次批改约 1–2 分钟（OCR + 批改 + 排版）；PDF 用红黑灰讲义版式，A4 可直接打印。</p>
 </main>
+
+<div class="modal" id="editModal">
+  <div class="modal-box">
+    <div class="modal-head"><b>编辑评语 / 分数</b><button type="button" id="editClose">×</button></div>
+    <div class="modal-body" id="editBody"></div>
+    <div class="modal-foot">
+      <button type="button" class="ghost" id="editCancel">取消</button>
+      <button type="button" class="btn" id="editSave"><span class="spinner"></span><span class="btn-label">保存并重新下载 PDF</span></button>
+    </div>
+  </div>
+</div>
 
 <script>
 const LEVELS = [
@@ -446,6 +472,7 @@ function makeRow() {
       <input class="row-name" placeholder="学生姓名（必填）">
       <span class="row-status">未添加</span>
       <a class="row-dl" target="_blank">下载 PDF</a>
+      <a class="row-edit" title="编辑评语/分数">✎ 编辑</a>
       <button type="button" class="row-remove" title="删除这一行">删除</button>
     </div>
     <div class="drop" tabindex="0" role="button">
@@ -462,7 +489,9 @@ function makeRow() {
   const nameInput = el.querySelector('.row-name');
   const statusEl = el.querySelector('.row-status');
   const dl = el.querySelector('.row-dl');
-  const row = { el, images: [], nameInput, statusEl, dl, running: false };
+  const editLink = el.querySelector('.row-edit');
+  const row = { el, images: [], nameInput, statusEl, dl, editLink, jobId: '', running: false };
+  editLink.addEventListener('click', (e) => { e.stopPropagation(); if (row.jobId) openEdit(row.jobId); });
   function render() {
     previews.innerHTML = row.images.map((src, i) =>
       `<span class="thumb"><img src="${src}" alt="作文截图"><button class="thumb-x" data-i="${i}" title="移除">×</button></span>`
@@ -547,6 +576,7 @@ async function gradeOne(row, level, qtext, qimgs) {
   row.running = true;
   setRowStatus(row, '提交中…', '');
   row.dl.style.display = 'none';
+  row.editLink.style.display = 'none';
   try {
     const resp = await fetch('/api/grade', {
       method: 'POST',
@@ -581,6 +611,8 @@ async function gradeOne(row, level, qtext, qimgs) {
         const a = document.createElement('a'); a.href = url; a.download = fname;
         document.body.appendChild(a); a.click(); a.remove();
         row.dl.href = url; row.dl.download = fname; row.dl.style.display = 'inline';
+        row.editLink.style.display = 'inline';
+        row.jobId = job.job_id;
         setRowStatus(row, `完成 ${Math.round((Date.now() - started) / 1000)}s`, 'ok');
         break;
       }
@@ -594,6 +626,67 @@ async function gradeOne(row, level, qtext, qimgs) {
     row.running = false;
   }
 }
+
+// ── 二次编辑：改分数/评语 → 重新生成 PDF ──────────────
+let editJob = '', editBase = null;
+const editModal = document.getElementById('editModal');
+const editBody = document.getElementById('editBody');
+function escH(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+async function openEdit(jobId) {
+  editJob = jobId;
+  try {
+    const r = await fetch('/api/edit_data?job_id=' + encodeURIComponent(jobId), { headers: { 'X-Access-Code': accessCode } });
+    if (!r.ok) throw new Error('任务过期或不可编辑');
+    const data = await r.json();
+    editBase = data.grade_json || {};
+    const scores = editBase['评分'] || {};
+    let html = '';
+    Object.keys(scores).forEach(k => {
+      const v = scores[k];
+      const sc = (v && typeof v === 'object') ? (v['分数'] != null ? v['分数'] : '') : '';
+      const cm = (v && typeof v === 'object') ? (v['评语'] || '') : (v || '');
+      html += `<div class="edit-row" data-key="${escH(k)}">
+        <label>${escH(k)} · 分数（0–5）</label>
+        <input class="edit-score" type="number" min="0" max="5" step="1" value="${escH(sc)}">
+        <textarea class="edit-comment">${escH(cm)}</textarea>
+      </div>`;
+    });
+    html += `<div class="edit-row"><label>总评</label><textarea class="edit-overall" rows="4">${escH(editBase['总评'] || '')}</textarea></div>`;
+    editBody.innerHTML = html;
+    editModal.classList.add('on');
+  } catch (e) { setStatus('读取失败：' + e.message, 'err'); }
+}
+function closeEdit() { editModal.classList.remove('on'); }
+document.getElementById('editClose').addEventListener('click', closeEdit);
+document.getElementById('editCancel').addEventListener('click', closeEdit);
+editModal.addEventListener('click', (e) => { if (e.target === editModal) closeEdit(); });
+document.getElementById('editSave').addEventListener('click', async () => {
+  if (!editBase) return;
+  const gj = JSON.parse(JSON.stringify(editBase));
+  gj['评分'] = gj['评分'] || {};
+  let total = 0, maxs = 0;
+  editBody.querySelectorAll('.edit-row[data-key]').forEach(rowEl => {
+    const k = rowEl.dataset.key;
+    const sc = Math.max(0, Math.min(5, parseInt(rowEl.querySelector('.edit-score').value, 10) || 0));
+    const cm = rowEl.querySelector('.edit-comment').value.trim();
+    gj['评分'][k] = { '分数': sc, '评语': cm };
+    total += sc; maxs += 5;
+  });
+  const ov = editBody.querySelector('.edit-overall');
+  if (ov) gj['总评'] = ov.value.trim();
+  const saveBtn = document.getElementById('editSave');
+  saveBtn.disabled = true;
+  try {
+    const resp = await fetch('/api/rerender', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': accessCode }, body: JSON.stringify({ job_id: editJob, grade_json: gj }) });
+    if (!resp.ok) { const e = await resp.json().catch(() => ({ error: 'HTTP ' + resp.status })); throw new Error(e.error || ('HTTP ' + resp.status)); }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = '作文批改-改.pdf'; document.body.appendChild(a); a.click(); a.remove();
+    closeEdit();
+    setStatus(`已按修改重新生成 PDF（总分 ${total}/${maxs}）。`, 'ok');
+  } catch (e) { setStatus('重新生成失败：' + e.message, 'err'); }
+  finally { saveBtn.disabled = false; }
+});
 
 btn.addEventListener('click', async () => {
   if (btn.disabled) return;
