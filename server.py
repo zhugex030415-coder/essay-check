@@ -526,6 +526,15 @@ def html_to_pdf(html):
     return HTML(string=html).write_pdf()
 
 
+def rerender_pdf(ctx, grade_json):
+    """用（可能被助教改过的）grade_json 按原上下文重新渲染 PDF。"""
+    if ctx.get("kind") == "cambridge":
+        html = render_cambridge_report(grade_json, ctx["exam"], ctx["part"], ctx["name"], ctx["question_text"], ctx["transcript"], ctx["essay_imgs"], ctx["question_imgs"])
+    else:
+        html = render_report(grade_json, ctx["level"], ctx["name"], ctx["question_text"], ctx["transcript"], ctx["hw_score"], ctx["hw_note"], ctx["essay_imgs"], ctx["question_imgs"])
+    return html_to_pdf(html)
+
+
 # ---------------------------------------------------------------- 请求处理
 def handle_grade(req):
     name = (req.get("name") or "").strip()
@@ -591,7 +600,10 @@ def handle_grade(req):
         essay_imgs.append(f"data:{img_mime};base64,{base64.b64encode(img_bytes).decode()}")
 
     html = render_report(grade_json, level, name, question_text, transcript, hw_score, hw_note, essay_imgs, question_imgs)
-    return html_to_pdf(html)
+    ctx = {"kind": "zhongkao", "level": level, "name": name, "question_text": question_text,
+           "transcript": transcript, "hw_score": hw_score, "hw_note": hw_note,
+           "essay_imgs": essay_imgs, "question_imgs": question_imgs}
+    return html_to_pdf(html), grade_json, ctx
 
 
 # ---------------------------------------------------------------- 剑桥专项（KET / PET / FCE）
@@ -835,7 +847,10 @@ def handle_grade_cam(req):
         essay_imgs.append(f"data:{img_mime};base64,{base64.b64encode(img_bytes).decode()}")
 
     html = render_cambridge_report(grade_json, exam_code, part_code, name, question_text, transcript, essay_imgs, question_imgs)
-    return html_to_pdf(html)
+    ctx = {"kind": "cambridge", "exam": exam_code, "part": part_code, "name": name,
+           "question_text": question_text, "transcript": transcript,
+           "essay_imgs": essay_imgs, "question_imgs": question_imgs}
+    return html_to_pdf(html), grade_json, ctx
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -906,9 +921,22 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"status": "error", "error": job.get("error", "")})
                 return
             pdf = job.get("pdf") or b""
-            with JOBS_LOCK:
-                JOBS.pop(jid, None)
             self._send(200, pdf, "application/pdf")
+            return
+        if p == "/api/edit_data":
+            if not self._auth():
+                self._send(401, {"error": "需要访问码"})
+                return
+            jid = ""
+            if "?" in self.path:
+                for kv in self.path.split("?", 1)[1].split("&"):
+                    if kv.startswith("job_id="):
+                        jid = kv.split("=", 1)[1]
+            job = JOBS.get(jid)
+            if not job or job.get("status") != "done":
+                self._send(404, {"error": "任务不存在或已过期"})
+                return
+            self._send(200, {"grade_json": job.get("grade_json") or {}, "kind": (job.get("ctx") or {}).get("kind")})
             return
         name = "index.html" if p in ("/", "/index.html") else p.lstrip("/")
         f = (ROOT / name).resolve()
@@ -959,7 +987,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?")[0]
-        if path not in ("/api/grade", "/api/grade_cam", "/api/diag"):
+        if path not in ("/api/grade", "/api/grade_cam", "/api/rerender", "/api/diag"):
             self._send(404, {"error": "not found"})
             return
         if not self._auth():
@@ -995,9 +1023,9 @@ class Handler(BaseHTTPRequestHandler):
 
             def _run():
                 try:
-                    pdf = handle_grade(req)
+                    pdf, gj, ctx = handle_grade(req)
                     with JOBS_LOCK:
-                        JOBS[job_id] = {"status": "done", "pdf": pdf, "ts": time.time()}
+                        JOBS[job_id] = {"status": "done", "pdf": pdf, "grade_json": gj, "ctx": ctx, "ts": time.time()}
                 except Exception as e:
                     with JOBS_LOCK:
                         JOBS[job_id] = {"status": "error", "error": f"{type(e).__name__}: {e}", "ts": time.time()}
@@ -1030,15 +1058,33 @@ class Handler(BaseHTTPRequestHandler):
 
             def _run_cam():
                 try:
-                    pdf = handle_grade_cam(req)
+                    pdf, gj, ctx = handle_grade_cam(req)
                     with JOBS_LOCK:
-                        JOBS[job_id] = {"status": "done", "pdf": pdf, "ts": time.time()}
+                        JOBS[job_id] = {"status": "done", "pdf": pdf, "grade_json": gj, "ctx": ctx, "ts": time.time()}
                 except Exception as e:
                     with JOBS_LOCK:
                         JOBS[job_id] = {"status": "error", "error": f"{type(e).__name__}: {e}", "ts": time.time()}
 
             threading.Thread(target=_run_cam, daemon=True).start()
             self._send(202, {"job_id": job_id, "status": "processing"})
+            return
+
+        if path == "/api/rerender":
+            if not self._auth():
+                self._send(401, {"error": "需要访问码"})
+                return
+            jid = (req.get("job_id") or "").strip()
+            gj = req.get("grade_json")
+            job = JOBS.get(jid)
+            if not job or job.get("status") != "done" or not job.get("ctx"):
+                self._send(404, {"error": "任务不存在或已过期"})
+                return
+            try:
+                pdf = rerender_pdf(job["ctx"], gj if isinstance(gj, dict) else job.get("grade_json"))
+            except Exception as e:
+                self._send(500, {"error": f"{type(e).__name__}: {e}"})
+                return
+            self._send(200, pdf, "application/pdf")
             return
 
 
